@@ -1,0 +1,84 @@
+
+
+
+CREATE TABLE IF NOT EXISTS Users (
+user_id INTEGER PRIMARY KEY AUTO_INCREMENT
+nickname TEXT UNIQUE NOT NULL
+age INT NOT NULL
+gender TEXT NOT NULL
+first_name TEXT NOT NULL
+last_name TEXT NOT NULL
+email TEXT UNIQUE NOT NULL
+password TEXT NOT NULL
+)
+
+CREATE TABLE IF NOT EXISTS Posts (
+post_id INTEGER PRIMARY KEY AUTO_INCREMENT,                             (Primary Key)
+user_id INTEGER NOT NULL,
+title TEXT NOT NULL,                   (Foreign Key to User table, indicates the user who created the post)
+content TEXT NOT NULL,
+category_id INTEGER NOT NULL,
+created_at TIMESTAMP NOT NULL (to track when the post was created)
+FOREIGN KEY (author_id) REFERENCES Users(user_id) 
+FOREIGN KEY (category_id) REFERENCES categories (id)
+)
+
+CREATE TABLE IF NOT EXISTS Comments (
+comment_id INTEGER PRIMARY KEY AUTO_INCREMENT,
+user_id INTEGER NOT NULL, 
+post_id INTEGER NOT NULL,
+content TEXT NOT NULL,
+created_at TIMESTAMP NOT NULL, (to track when the comment was made)
+FOREIGN KEY (author_id) REFERENCES Users(user_id)
+FOREIGN KEY (post_id) REFERENCES Post(post_id)
+)
+
+CREATE TABLE IF NOT EXISTS Likes (
+like_id INTEGER PRIMARY KEY AUTO_INCREMENT (Primary Key)
+user_id INTEGER NOT NULL,           (Foreign Key to User table, indicates the user who liked)
+post_id INTEGER NOT NULL,           (Foreign Key to Post table, indicates the post that was liked)
+FOREIGN KEY (user_id) REFERENCES Users(user_id)
+FOREIGN KEY (post_id) REFERENCES Post(post_id)
+)
+
+
+CREATE TABLE IF NOT EXISTS Categories (
+category_id INTEGER PRIMARY KEY  AUTO_INCREMENT (Primary Key)
+category Name TEXT 
+)
+
+CREATE TABLE IF NOT EXISTS Post_Category(
+post_id INTEGER NOT NULL (Foreign Key to Post table)
+category_id INTEGER NOT NULL (Foreign Key to Category table)
+FOREIGN KEY (post_id) REFERENCES Posts(post_id)
+FOREIGN KEY (category_id) REFERENCES Categories(category_id)
+)
+
+CREATE TABLE IF NOT EXISTS Chats (
+message_id INTEGER PRIMARY KEY AUTO_INCREMENT (Primary Key)
+sender_id INTEGER NOT NULL (Foreign Key to User table, indicates the sender of the message)
+receiver_id INTEGER NOT NULL (Foreign Key to User table, indicates the receiver of the message)
+message Content TEXT NOT NULL
+sent_at TIMESTAMP NOT NULL (to track when the message was sent)
+FOREIGN KEY (sender_id) REFERENCES Users(user_id)
+FOREIGN KEY (receiver_id) REFERENCES Users(user_id)
+)
+
+
+CREATE TABLE IF NOT EXISTS Online_Users(
+user_id INTEGER NOT NULL (Foreign Key to User table, indicates the user who is online)
+Last_Activity_Time TIMESTAMP NOT NULL (to track the last activity time of the user)
+)
+Online Users Table (for Tracking Online/Logged-in Users)
+
+
+CREATE TABLE IF NOT EXISTS Posts (
+    post_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    category_id INTEGER NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES Users(user_id), 
+    FOREIGN KEY (category_id) REFERENCES Categories(id) 
+);

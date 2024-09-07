@@ -1,0 +1,14 @@
+
+Hi :))
+
+
+
+To run this project, navigate to the  backend folder and run the command "go run main.go"
+
+Then navigate to the frontend folder with the html and js files and run the command "npm install"
+
+This should install all dependencies needed for the project.
+
+Next open the html file using a live server.
+
+Thats all!

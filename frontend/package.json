@@ -1,0 +1,21 @@
+{
+  "name": "frontend",
+  "version": "1.0.0",
+  "description": "real-time-forum-frontend",
+  "main": "index.js",
+  "scripts": {
+    "test": "myTest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://learn.01founders.co/git/suomar/real-time-forum.git"
+  },
+  "keywords": [
+    "real-time-forum"
+  ],
+  "author": "sim",
+  "license": "ISC",
+  "dependencies": {
+    "jwt-decode": "^4.0.0"
+  }
+}

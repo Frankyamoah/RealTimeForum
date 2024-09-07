@@ -1,0 +1,14 @@
+- Hey so I've  been able to get the broadcast meesages to work
+
+- Currently the biggest issue is when trying to send a private message which is done by double clicking a name on the user list 
+and sending a message seems to close the the whole websocket connection. I have no idea why and i cant figure out how to fix it. 
+There are no errors appearing that relate to the server to indicate why but if you can gifure it out let me know. 
+
+- Other issues include, for some reason the online users list does not load the whole list immediately, i also can't figure out why it has to
+reload the list after one minute to show all the online users on the list. 
+
+- Also the placeholder does not appear to be dissapearing intially when a broadcast message is sent. 
+
+
+
+Good luck ive tried several different things so need a break from this. 

@@ -1,0 +1,29 @@
+# Create a new .gitignore file or edit the existing one
+cat > .gitignore << EOL
+# Dependency directories
+node_modules/
+
+# macOS
+**/.DS_Store
+
+# Logs
+*.log
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# dotenv environment variables file
+.env
+
+# package-lock.json (optional, depending on your team's preference)
+package-lock.json
+EOL
