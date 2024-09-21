@@ -174,32 +174,43 @@ function loginP() {
         const username = usernameInput.value;
         const password = passwordInput.value;
 
-        // Make a POST request to your /login endpoint
-        const response = await fetch('http://localhost:8080/login', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ username, password })
-        });
-        if (response.ok) {
-            const data = await response.json();
-            console.log('Data Received', data);
-            localStorage.setItem('token', data.token); // Store token
-            localStorage.setItem('username', data.username); // Store username
-            localStorage.setItem('userId', data.userId);
-            sessionStorage.setItem('userId', data.userId); // Store userId in sessionStorage
+     
+        try {
+            // Make a POST request to your /login endpoint
+            const response = await fetch('http://localhost:8080/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ username, password })
+            });
 
+            if (response.ok) {
+                const data = await response.json();
+                console.log('Data Received', data);
+                localStorage.setItem('token', data.token);
+                localStorage.setItem('username', data.username);
+                localStorage.setItem('userId', data.userId);
+                sessionStorage.setItem('userId', data.userId);
 
-            // // Initialize WebSocket connection after successful login
-            // initializeWebSocket();
-
-            // Redirect to the forum page regardless of JWT decoding success
-            window.location.href = '#/forum';
-        } else {
-            console.error('Login request failed');
-            const errorData = await response.json();
-            alert(`Login failed: ${errorData.message}`);
+                window.location.href = '#/forum';
+            } else {
+                const errorData = await response.json();
+                let errorMessage = 'Login failed';
+                
+                if (errorData.message) {
+                    errorMessage += `: ${errorData.message}`;
+                } else if (response.status === 401) {
+                    errorMessage += ': Invalid username or password';
+                } else if (response.status === 404) {
+                    errorMessage += ': User not found';
+                }
+                
+                alert(errorMessage);
+            }
+        } catch (error) {
+            console.error('Login request failed', error);
+            alert('Login failed: An unexpected error occurred. Please try again later.');
         }
     });
 }

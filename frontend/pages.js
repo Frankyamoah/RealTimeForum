@@ -1010,122 +1010,146 @@ function createNewpostContent() {
     }
 }
 
-    
-    async function displaySinglePostWithComments(postData) {
-        contentDiv.innerHTML = ''; // Clear content
-    
-        const postElement = document.createElement('div');
-        postElement.classList.add('singlepost'); // Matches the ".singlepost" style in CSS
-    
-        const titleElement = document.createElement('h2');
-        titleElement.textContent = postData.post_title;
-    
-        const authorElement = document.createElement('p');
-        authorElement.textContent = `By ${postData.user_id}`;
-    
-        const contentElement = document.createElement('p');
-        contentElement.textContent = postData.post_content;
-    
-        const createdAtElement = document.createElement('p');
-        createdAtElement.textContent = `Posted on ${formatDate(postData.created_at)}`;
-    
-        // Add the comments section
-        const commentsContainer = document.createElement('div');
-        commentsContainer.classList.add('comments-section'); // Custom class for comments section
-    
-        const commentsTitle = document.createElement('h3');
-        commentsTitle.textContent = 'Comments';
-        commentsContainer.appendChild(commentsTitle);
-    
-        // Fetch and display comments
+async function displaySinglePostWithComments(postData) {
+    contentDiv.innerHTML = ''; // Clear content
+    setupNav(); // Set up navigation
+
+    // Fetch all users and create a mapping of user IDs to usernames
+    const usersMap = await fetchAllUsers();
+
+    const postElement = document.createElement('div');
+    postElement.classList.add('singlepost');
+
+    const titleElement = document.createElement('h2');
+    titleElement.textContent = postData.post_title;
+
+    const authorElement = document.createElement('p');
+    authorElement.textContent = `By ${postData.username}`; // Using the username from the post data
+
+    const contentElement = document.createElement('p');
+    contentElement.textContent = postData.post_content;
+
+    const createdAtElement = document.createElement('p');
+    createdAtElement.textContent = `Posted on ${formatDate(postData.created_at)}`;
+
+    const commentsContainer = document.createElement('div');
+    commentsContainer.classList.add('comments-section');
+
+    const commentsTitle = document.createElement('h3');
+    commentsTitle.textContent = 'Comments';
+    commentsContainer.appendChild(commentsTitle);
+
+    try {
+        const commentsResponse = await fetch(`http://localhost:8080/comments?postId=${postData.post_id}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+
+        if (!commentsResponse.ok) throw new Error('Failed to fetch comments');
+
+        const commentsData = await commentsResponse.json();
+
+        // Display comments in reverse order (most recent first)
+        commentsData.reverse().forEach(comment => {
+            const commentElement = document.createElement('div');
+            commentElement.classList.add('comment');
+
+            const commentContent = document.createElement('p');
+            commentContent.textContent = comment.content;
+
+            const commentAuthor = document.createElement('p');
+            const authorUsername = usersMap[comment.author_id] || 'Unknown User';
+            commentAuthor.textContent = `By ${authorUsername}`;
+
+            const commentDate = document.createElement('p');
+            commentDate.textContent = `Commented on ${formatDate(comment.created_at)}`;
+
+            commentElement.appendChild(commentContent);
+            commentElement.appendChild(commentAuthor);
+            commentElement.appendChild(commentDate);
+
+            commentsContainer.appendChild(commentElement);
+        });
+
+    } catch (error) {
+        console.error('Error fetching comments:', error);
+        commentsContainer.appendChild(document.createTextNode('Failed to load comments.'));
+    }
+
+    postElement.appendChild(titleElement);
+    postElement.appendChild(authorElement);
+    postElement.appendChild(contentElement);
+    postElement.appendChild(createdAtElement);
+    postElement.appendChild(commentsContainer);
+
+    // Add the comment submission form
+    const commentForm = document.createElement('form');
+    commentForm.setAttribute('id', 'commentForm');
+    commentForm.innerHTML = `
+        <textarea id="newComment" class="input" placeholder="Add your comment..."></textarea><br>
+        <button type="submit" class="submit">Submit</button>
+    `;
+
+    commentForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const newComment = document.getElementById('newComment').value;
+
         try {
-            const commentsResponse = await fetch(`http://localhost:8080/comments?postId=${postData.post_id}`, {
-                method: 'GET',
+            const response = await fetch('http://localhost:8080/add-comment', {
+                method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
+                },
+                body: JSON.stringify({
+                    post_id: postData.post_id,
+                    content: newComment
+                })
             });
-    
-            if (!commentsResponse.ok) throw new Error('Failed to fetch comments');
-    
-            const commentsData = await commentsResponse.json();
-    
-            // Display comments in reverse order (most recent first)
-            commentsData.reverse().forEach(comment => {
-                const commentElement = document.createElement('div');
-                commentElement.classList.add('comment'); // Custom class for individual comments
-    
-                const commentContent = document.createElement('p');
-                commentContent.textContent = comment.content;
-    
-                const commentAuthor = document.createElement('p');
-                commentAuthor.textContent = `By user ${comment.author_id}`;
-    
-                const commentDate = document.createElement('p');
-                commentDate.textContent = `Commented on ${formatDate(comment.created_at)}`;
-    
-                commentElement.appendChild(commentContent);
-                commentElement.appendChild(commentAuthor);
-                commentElement.appendChild(commentDate);
-    
-                commentsContainer.appendChild(commentElement);
-            });
-    
+
+            if (!response.ok) throw new Error('Failed to add comment');
+
+            alert('Comment added successfully!');
+            // Refresh the post and comments section
+            displaySinglePostWithComments(postData);
+
         } catch (error) {
-            console.error('Error fetching comments:', error);
+            console.error('Error adding comment:', error);
+            alert('Failed to add comment.');
         }
+    });
+
+    postElement.appendChild(commentForm);
+    contentDiv.appendChild(postElement);
+}
     
-        postElement.appendChild(titleElement);
-        postElement.appendChild(authorElement);
-        postElement.appendChild(contentElement);
-        postElement.appendChild(createdAtElement);
-        postElement.appendChild(commentsContainer);
-    
-        // Add the comment submission form
-        const commentForm = document.createElement('form');
-        commentForm.setAttribute('id', 'commentForm');
-        commentForm.innerHTML = `
-            <textarea id="newComment" class="input" placeholder="Add your comment..."></textarea><br>
-            <button type="submit" class="submit">Submit</button>
-        `;
-    
-        commentForm.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            const newComment = document.getElementById('newComment').value;
-    
-            try {
-                const response = await fetch('http://localhost:8080/add-comment', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${localStorage.getItem('token')}`
-                    },
-                    body: JSON.stringify({
-                        post_id: postData.post_id,
-                        content: newComment
-                    })
-                });
-    
-                if (!response.ok) throw new Error('Failed to add comment');
-    
-                alert('Comment added successfully!');
-                // Refresh the post and comments section
-                viewPostWithComments(postData.post_id);
-    
-            } catch (error) {
-                console.error('Error adding comment:', error);
-                alert('Failed to add comment.');
+// Function to fetch all users and create a mapping of user IDs to usernames
+async function fetchAllUsers() {
+    try {
+        const response = await fetch('http://localhost:8080/users', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
             }
         });
-    
-        postElement.appendChild(commentForm);
-        contentDiv.appendChild(postElement);
+
+        if (!response.ok) throw new Error('Failed to fetch users');
+
+        const users = await response.json();
+        const usersMap = {};
+        users.forEach(user => {
+            usersMap[user.user_id] = user.username;
+        });
+        return usersMap;
+    } catch (error) {
+        console.error('Error fetching users:', error);
+        return {};
     }
-    
-    
-
-
+}
 
     export {
         createForumContent, 
