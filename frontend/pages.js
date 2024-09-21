@@ -15,6 +15,10 @@ const MAX_STORED_MESSAGES = 20; //
 let newMessageCount = 0;
 let lastBroadcastTimestamp = 0;
 const contentDiv = document.getElementById('content');
+let chatHistoryOffset = 0;
+const chatHistoryLimit = 10;
+let hasMoreMessages = true
+let isLoadingMessages = false;
 
 function formatDate(isoDateString) {
     const date = new Date(isoDateString);
@@ -55,58 +59,50 @@ async function createForumContent() {
 
 }
 
-// Displays the posts on the forum page
 function displayPostData(postData) {
-// Clears the post container
-  postContainer.innerHTML = ''
-    // Looping through each post in the postData array
+    postContainer.innerHTML = '';
+
+    // Loop through each post in the postData array (reversed to show the latest post first)
     postData.forEach(post => {
-        // Creating a div for each post
-        const singlePost = document.createElement('div')
-        // Setting the class of the div to singlepost
-        singlePost.setAttribute('class', 'singlepost')
-
-        // Creating a new div for the title of the post
+        const singlePost = document.createElement('div');
+        singlePost.setAttribute('class', 'singlepost');
+        
         const titleElement = document.createElement("h2");
-        // Setting the text content of the title div to the post title
-        titleElement.textContent = `${post.post_title}`
+        titleElement.textContent = `${post.post_title}`;
+        titleElement.style.cursor = 'pointer'; // Change cursor to pointer
+        titleElement.addEventListener('click', () => {
+            viewPostWithComments(post.post_id);
+        });
 
-        // Creating a new div for the author of the post
+        // Display author (use the dynamically fetched username)
         const authorElement = document.createElement("p");
-        // Setting the text content of the author div to the post author
-        authorElement.textContent = `By ${post.user_id}`
-
-        // Creating a new div for the content of the post
+        authorElement.textContent = `By ${post.username}`; 
+        
         const contentElement = document.createElement("p");
-        // Setting the text content of the content div to the post content
-        contentElement.textContent = `${post.post_content}`
-
-        // Creating a new div for the date of post creation
+        contentElement.textContent = `${post.post_content}`;
+        
         const createdAtElement = document.createElement("p");
-        // Setting the text content of the created at div to the post creation date
-        contentElement.textContent = `${formatDate(post.created_at)}`
+        createdAtElement.textContent = `Posted on ${formatDate(post.created_at)}`;
 
-        // Creating a new div for the comments of the post
+        // Display the number of comments
         const commentsElement = document.createElement("p");
-        // Setting the content of the post comments div
-        commentsElement.textContent = 'post comments'
+        commentsElement.textContent = `${post.comment_count || 0} comments`; 
 
-        // Appending the elements to the single post div
-        singlePost.appendChild(titleElement)
-        singlePost.appendChild(authorElement)
-        singlePost.appendChild(contentElement)
-        singlePost.appendChild(createdAtElement)
-        singlePost.appendChild(commentsElement)
+        // Append the elements to the singlePost div
+        singlePost.appendChild(titleElement);
+        singlePost.appendChild(authorElement);
+        singlePost.appendChild(contentElement);
+        singlePost.appendChild(createdAtElement);
+        singlePost.appendChild(commentsElement);
 
-        postContainer.appendChild(singlePost)
-    })
+        postContainer.appendChild(singlePost);
+    });
 
-   
-
-   // appending the post container to the content div
-   contentDiv.appendChild(postContainer)
- 
+    contentDiv.appendChild(postContainer);
 }
+
+
+
 
 
 
@@ -215,6 +211,20 @@ function createChatContent() {
     messagesContainer.id = 'messages-container';
     chatContainer.appendChild(messagesContainer); // Append messages container to the chat container
 
+    // **Add the loading indicator here**
+    const loadingIndicator = document.createElement('div');
+    loadingIndicator.id = 'loading-indicator';
+    loadingIndicator.className = 'loading-spinner';
+    loadingIndicator.style.display = 'none';
+    loadingIndicator.style.position = 'absolute';
+    loadingIndicator.style.top = '10px';
+    loadingIndicator.style.left = '50%';
+    loadingIndicator.style.transform = 'translateX(-50%)';
+    messagesContainer.appendChild(loadingIndicator);
+
+
+    chatContainer.appendChild(messagesContainer); // Append messages container to the chat container
+ 
      // Notifications container setup
      const notificationsContainer = document.createElement('div');
      notificationsContainer.id = 'notifications-container';
@@ -318,7 +328,7 @@ function sendMessage() {
                 return;
             }
             const messageDiv = document.createElement('div');
-            messageDiv.className = `message ${message.type === 'private' ? 'private-message' : 'broadcast-message'} outgoing`;
+            messageDiv.className = `message private-message outgoing`;
             
             const contentSpan = document.createElement('span');
             contentSpan.className = 'message-content';
@@ -544,11 +554,12 @@ function requestOnlineUsersList() {
         console.error("WebSocket is not open. Unable to request online users list.");
     }
 }
+
 // Function to initiate private chat and load chat history
 function initiatePrivateChat(username, userId) {
     const currentlyChattingWith = sessionStorage.getItem('currentChatUserId');
     if (currentlyChattingWith === userId.toString()) {
-        // If the same user is clicked again, clear the current chat
+        // Clear current chat
         sessionStorage.removeItem('currentChatUserId');
         sessionStorage.removeItem('currentChatUser');
         document.getElementById('messages-container').innerHTML = '';
@@ -558,8 +569,70 @@ function initiatePrivateChat(username, userId) {
         sessionStorage.setItem('currentChatUserId', userId);
         document.getElementById('chat-with-label').textContent = `Chat with ${username}`;
         loadAndDisplayChatHistory(userId);
+        setupScrollListener(); // Initialize scroll listener
     }
 }
+
+// In the setupScrollListener function
+function setupScrollListener() {
+    const messagesContainer = document.getElementById('messages-container');
+    if (messagesContainer) {
+        messagesContainer.addEventListener('scroll', function() {
+            if (messagesContainer.scrollTop === 0 && hasMoreMessages && !isLoadingMessages) {
+                loadMoreMessages();
+            }
+        });
+    }
+}
+
+// Update the loadMoreMessages function
+function loadMoreMessages() {
+    if (isLoadingMessages) return; // Prevent multiple simultaneous loads
+
+    isLoadingMessages = true;
+    const loadingIndicator = document.getElementById('loading-indicator');
+    if (loadingIndicator) {
+        loadingIndicator.style.display = 'block';
+    }
+
+    // Ensure the loading indicator is visible for at least 1 second
+    setTimeout(() => {
+        const currentUserId = sessionStorage.getItem('userId');
+        const receiverId = sessionStorage.getItem('currentChatUserId');
+
+        if (!currentUserId || !receiverId) {
+            console.error("User IDs are missing.");
+            isLoadingMessages = false;
+            if (loadingIndicator) {
+                loadingIndicator.style.display = 'none';
+            }
+            return;
+        }
+
+        chatHistoryOffset += chatHistoryLimit;
+        fetchChatHistory(currentUserId, receiverId, chatHistoryLimit, chatHistoryOffset)
+            .then(() => {
+                // Keep the loading indicator visible for a short time after loading
+                setTimeout(() => {
+                    isLoadingMessages = false;
+                    if (loadingIndicator) {
+                        loadingIndicator.style.display = 'none';
+                    }
+                }, 500);
+            })
+            .catch((error) => {
+                console.error('Error loading more messages:', error);
+                isLoadingMessages = false;
+                if (loadingIndicator) {
+                    loadingIndicator.style.display = 'none';
+                }
+            });
+    }, 1000);
+}
+
+
+
+
 
 function displayBroadcastMessage(message) {
     console.log(`Displaying broadcast message: ${message.senderUsername}: ${message.message}`);
@@ -582,6 +655,7 @@ function displayBroadcastMessage(message) {
     removeNoMessagesPlaceholder();
 }
 
+// Update the displayPrivateMessage and displayOutgoingMessage functions
 function displayPrivateMessage(message) {
     try {
         const messagesContainer = document.getElementById('messages-container');
@@ -696,82 +770,104 @@ function updateOnlineUsersList(users) {
 }
 
 function loadAndDisplayChatHistory(userId) {
-    // Retrieve the current user's ID from sessionStorage, where it was stored upon login.
     const currentUserId = sessionStorage.getItem('userId');
-
-    // Ensure the currentUserId is valid
     if (!currentUserId) {
         console.error("Current user ID is missing.");
         return;
     }
+    chatHistoryOffset = 0; // Reset offset when starting new chat
+    hasMoreMessages = true; // Reset flag
+    fetchChatHistory(currentUserId, userId, chatHistoryLimit, chatHistoryOffset);
+}
 
-    // Construct the URL for the chat history API endpoint, including the sender and receiver IDs as query parameters.
-    const url = `http://localhost:8080/chat-history?senderId=${currentUserId}&receiverId=${userId}`;
-
-    // Make an HTTP GET request to the server to fetch the chat history between the current user and the specified user.
-    fetch(url)
+// In the fetchChatHistory function
+function fetchChatHistory(senderId, receiverId, limit, offset) {
+    const url = `http://localhost:8080/chat-history?senderId=${senderId}&receiverId=${receiverId}&limit=${limit}&offset=${offset}`;
+    return fetch(url)
         .then(response => {
-            // Check if the HTTP response is successful (status code in the range 200-299).
             if (!response.ok) {
-                // If the response is not successful, throw an error to be handled in the catch block.
                 throw new Error('Failed to fetch chat history');
             }
-            // If the response is successful, parse the JSON body of the response to get the chat messages.
             return response.json();
         })
         .then(messages => {
-            // If the JSON parsing is successful and messages are retrieved,
-            // call displayChatHistory to update the UI with these messages.
-            displayChatHistory(messages);
+            if (messages && messages.length < limit) {
+                hasMoreMessages = false; // No more messages to load
+                displayNoMoreMessagesIndicator();
+            }
+            if (messages) {
+                displayChatHistory(messages, offset > 0);
+            } else {
+                console.log('No messages returned from server');
+            }
         })
         .catch(error => {
-            // If there are any errors during the fetch operation or JSON parsing,
-            // log the error message to the console.
             console.error('Error fetching chat history:', error);
-
-            // Update the messages container to indicate an error in fetching the chat history.
             const messagesContainer = document.getElementById('messages-container');
-            messagesContainer.textContent = 'Failed to load chat history.';
+            if (messagesContainer) {
+                messagesContainer.textContent = 'Failed to load chat history.';
+            }
+            throw error;
         });
 }
 
 
-
-
-
-// Helper function to update the UI with chat messages.
-function displayChatHistory(messages) {
-    // Get a reference to the messages container in the DOM where chat messages are displayed.
+function displayChatHistory(messages, append = false) {
     const messagesContainer = document.getElementById('messages-container');
+    const currentUserId = sessionStorage.getItem('userId');
 
-    // Clear any existing messages in the container to make room for the new chat history.
-    messagesContainer.innerHTML = '';
+    if (!append) {
+        messagesContainer.innerHTML = '';
+    }
 
-    
+    // Reverse messages for chronological order
+    messages.reverse();
+
+    let previousHeight = messagesContainer.scrollHeight;
+
     messages.forEach(message => {
         const messageDiv = document.createElement('div');
-        messageDiv.className = 'chat-message';
+        const isOutgoing = message.sender_id.toString() === currentUserId;
+        messageDiv.className = `message private-message ${isOutgoing ? 'outgoing' : ''}`;
 
+        const contentSpan = document.createElement('span');
+        contentSpan.className = 'message-content';
+        contentSpan.textContent = `${message.senderUsername}: ${message.message_content}`;
+        messageDiv.appendChild(contentSpan);
+
+        const timeSpan = document.createElement('span');
+        timeSpan.className = 'message-time';
         const sentAt = new Date(message.sent_at);
-        console.log(`Original sentAt: ${message.sent_at}, Parsed sentAt: ${sentAt}`);
-        const formattedDate = !isNaN(sentAt.getTime()) ? sentAt.toLocaleString() : 'Invalid Date';
+        const formattedDate = !isNaN(sentAt.getTime()) ? sentAt.toLocaleTimeString() : 'Invalid Date';
+        timeSpan.textContent = formattedDate;
+        messageDiv.appendChild(timeSpan);
 
-        const senderUsername = message.senderUsername || 'Unknown';
-        const messageContent = message.message_content || 'No message content';
-
-        messageDiv.textContent = `${senderUsername}: ${messageContent} (${formattedDate})`;
-        messagesContainer.appendChild(messageDiv);
+        if (append) {
+            messagesContainer.insertBefore(messageDiv, messagesContainer.firstChild);
+        } else {
+            messagesContainer.appendChild(messageDiv);
+        }
     });
 
-    // If no messages are present (i.e., the messages array is empty),
-    // display a message indicating that there are no previous conversations.
-    if (messages.length === 0) {
+    if (append) {
+        let newHeight = messagesContainer.scrollHeight;
+        messagesContainer.scrollTop = newHeight - previousHeight;
+    } else {
+        // Scroll to bottom on initial load
+        scrollMessagesToBottom();
+    }
+
+    // If no messages are present
+    if (messages.length === 0 && !append) {
         const noMessages = document.createElement('div');
         noMessages.textContent = 'No previous conversations.';
-        noMessages.className = 'no-messages';  // This class can be used for styling.
+        noMessages.className = 'no-messages';
         messagesContainer.appendChild(noMessages);
     }
 }
+
+
+
 
 
 
@@ -887,6 +983,147 @@ function createNewpostContent() {
 
 
     }
+    async function viewPostWithComments(postId) {
+    contentDiv.innerHTML = ''; // Clear content
+
+    const token = localStorage.getItem('token');
+    try {
+        // Fetch the post data
+        const postResponse = await fetch(`http://localhost:8080/posts/${postId}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        if (!postResponse.ok) throw new Error('Failed to fetch post');
+
+        const postData = await postResponse.json();
+        await displaySinglePostWithComments(postData);
+
+        // Comments are fetched and displayed within displaySinglePostWithComments
+    } catch (error) {
+        console.error('Error fetching post:', error);
+        alert('Failed to load the post. Please try again later.');
+        // Optionally, redirect back to the forum page
+        window.location.href = '#/forum';
+    }
+}
+
+    
+    async function displaySinglePostWithComments(postData) {
+        contentDiv.innerHTML = ''; // Clear content
+    
+        const postElement = document.createElement('div');
+        postElement.classList.add('singlepost'); // Matches the ".singlepost" style in CSS
+    
+        const titleElement = document.createElement('h2');
+        titleElement.textContent = postData.post_title;
+    
+        const authorElement = document.createElement('p');
+        authorElement.textContent = `By ${postData.user_id}`;
+    
+        const contentElement = document.createElement('p');
+        contentElement.textContent = postData.post_content;
+    
+        const createdAtElement = document.createElement('p');
+        createdAtElement.textContent = `Posted on ${formatDate(postData.created_at)}`;
+    
+        // Add the comments section
+        const commentsContainer = document.createElement('div');
+        commentsContainer.classList.add('comments-section'); // Custom class for comments section
+    
+        const commentsTitle = document.createElement('h3');
+        commentsTitle.textContent = 'Comments';
+        commentsContainer.appendChild(commentsTitle);
+    
+        // Fetch and display comments
+        try {
+            const commentsResponse = await fetch(`http://localhost:8080/comments?postId=${postData.post_id}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                }
+            });
+    
+            if (!commentsResponse.ok) throw new Error('Failed to fetch comments');
+    
+            const commentsData = await commentsResponse.json();
+    
+            // Display comments in reverse order (most recent first)
+            commentsData.reverse().forEach(comment => {
+                const commentElement = document.createElement('div');
+                commentElement.classList.add('comment'); // Custom class for individual comments
+    
+                const commentContent = document.createElement('p');
+                commentContent.textContent = comment.content;
+    
+                const commentAuthor = document.createElement('p');
+                commentAuthor.textContent = `By user ${comment.author_id}`;
+    
+                const commentDate = document.createElement('p');
+                commentDate.textContent = `Commented on ${formatDate(comment.created_at)}`;
+    
+                commentElement.appendChild(commentContent);
+                commentElement.appendChild(commentAuthor);
+                commentElement.appendChild(commentDate);
+    
+                commentsContainer.appendChild(commentElement);
+            });
+    
+        } catch (error) {
+            console.error('Error fetching comments:', error);
+        }
+    
+        postElement.appendChild(titleElement);
+        postElement.appendChild(authorElement);
+        postElement.appendChild(contentElement);
+        postElement.appendChild(createdAtElement);
+        postElement.appendChild(commentsContainer);
+    
+        // Add the comment submission form
+        const commentForm = document.createElement('form');
+        commentForm.setAttribute('id', 'commentForm');
+        commentForm.innerHTML = `
+            <textarea id="newComment" class="input" placeholder="Add your comment..."></textarea><br>
+            <button type="submit" class="submit">Submit</button>
+        `;
+    
+        commentForm.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const newComment = document.getElementById('newComment').value;
+    
+            try {
+                const response = await fetch('http://localhost:8080/add-comment', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    },
+                    body: JSON.stringify({
+                        post_id: postData.post_id,
+                        content: newComment
+                    })
+                });
+    
+                if (!response.ok) throw new Error('Failed to add comment');
+    
+                alert('Comment added successfully!');
+                // Refresh the post and comments section
+                viewPostWithComments(postData.post_id);
+    
+            } catch (error) {
+                console.error('Error adding comment:', error);
+                alert('Failed to add comment.');
+            }
+        });
+    
+        postElement.appendChild(commentForm);
+        contentDiv.appendChild(postElement);
+    }
+    
+    
 
 
 

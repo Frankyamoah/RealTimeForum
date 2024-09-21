@@ -22,6 +22,10 @@
     --post-border: #ccc;
     --notification-bg: #ffffe0;
     --notification-border: #ffeb3b;
+    --sent-message-bg: #dcf8c6;
+    --sent-message-border: #34b7f1;
+    --received-message-bg: #e1e1e1;
+    --received-message-border: #7f8c8d;
 }
 
 .dark-mode {
@@ -48,6 +52,10 @@
     --post-border: #3a3a3a;
     --notification-bg: #2c2c2c;
     --notification-border: #f39c12;
+    --sent-message-bg: #056162;
+    --sent-message-border: #25D366;
+    --received-message-bg: #262D31;
+    --received-message-border: #0D7E8C;
 }
 
 body {
@@ -110,12 +118,14 @@ nav {
 #messages-container {
     grid-column: 1 / 2;
     grid-row: 1 / 3;
-    overflow-y: auto;
+    overflow-y: auto; /* Ensure overflow is set */
     padding: 10px;
-    background: var(--chat-bg);
+    background-color: var(--chat-bg);
     border: 1px solid var(--post-border);
     border-radius: 5px;
+    height: 400px; /* Add the height here */
 }
+
 
 #online-users-container {
     grid-column: 2 / 3;
@@ -168,6 +178,28 @@ nav {
     overflow-y: auto;
 }
 
+.loading-spinner {
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #3498db;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    animation: spin 1s linear infinite;
+    z-index: 1000;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.no-more-messages {
+    text-align: center;
+    color: #888;
+    margin: 10px 0;
+    font-size: 0.9em;
+}
+
 .online-user {
     font-size: 14px;
     display: flex;
@@ -211,20 +243,29 @@ nav {
     word-wrap: break-word;
 }
 
-.message.private-message, .message.private-message.outgoing {
+.message.private-message {
+    background-color: var(--received-message-bg);
+    border-left: 5px solid var(--received-message-border);
+    margin-right: auto;
+    margin-left: 0;
+}
+
+.message.private-message.outgoing {
     background-color: var(--sent-message-bg);
     border-left: none;
     border-right: 5px solid var(--sent-message-border);
     margin-left: auto;
+    margin-right: 0;
 }
 
-.message.broadcast-message, .message.broadcast-message.outgoing {
+.message.broadcast-message {
     background-color: var(--broadcast-bg);
     border-left: 5px solid var(--broadcast-border);
 }
 
 .message-content {
     margin-bottom: 5px;
+    color: var(--text-color);
 }
 
 .message-sender {
@@ -234,7 +275,8 @@ nav {
 
 .message-time {
     font-size: 0.8em;
-    color: #888;
+    color: var(--text-color);
+    opacity: 0.7;
     margin-top: 5px;
     display: block;
 }

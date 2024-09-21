@@ -16,12 +16,14 @@ type User struct {
 
 // Post represents the Posts table in the database
 type Posts struct {
-	PostID     int       `json:"post_id"`
-	UserID     int       `json:"user_id"`
-	Title      string    `json:"post_title"`
-	Content    string    `json:"post_content"`
-	CategoryID int       `json:"category_id"`
-	CreatedAt  time.Time `json:"created_at"`
+	PostID       int       `json:"post_id"`
+	UserID       int       `json:"user_id"`
+	Title        string    `json:"post_title"`
+	Content      string    `json:"post_content"`
+	CategoryID   int       `json:"category_id"`
+	CreatedAt    time.Time `json:"created_at"`
+	CommentCount int       `json:"comment_count"` // This field will store the number of comments
+	Username     string    `json:"username"`      // New field for storing the fetched username
 }
 
 // Comment represents the Comments table in the database

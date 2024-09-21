@@ -102,9 +102,62 @@ func (fs *ForumService) CreatePost(newPost realtimeforum.Posts) (int64, error) {
 	return postID, nil
 }
 
-func (fs *ForumService) GetAllPosts() ([]realtimeforum.Posts, error) {
-	rows, err := fs.DB.Query("SELECT * FROM Posts")
+func (fs *ForumService) GetPostByID(postID int) (*realtimeforum.Posts, error) {
+	query := `
+    SELECT 
+        p.post_id, 
+        p.user_id, 
+        p.title, 
+        p.content, 
+        p.category_id,
+        p.created_at, 
+        COUNT(c.comment_id) AS comment_count,
+        u.username
+    FROM 
+        Posts p
+    LEFT JOIN 
+        Comments c ON p.post_id = c.post_id
+    JOIN
+        Users u ON p.user_id = u.user_id
+    WHERE
+        p.post_id = ?
+    GROUP BY 
+        p.post_id
+    `
+	row := fs.DB.QueryRow(query, postID)
+	var post realtimeforum.Posts
+	err := row.Scan(&post.PostID, &post.UserID, &post.Title, &post.Content, &post.CategoryID, &post.CreatedAt, &post.CommentCount, &post.Username)
 	if err != nil {
+		return nil, err
+	}
+	return &post, nil
+}
+
+func (fs *ForumService) GetAllPosts() ([]realtimeforum.Posts, error) {
+	query := `
+    SELECT 
+        p.post_id, 
+        p.user_id, 
+        p.title, 
+        p.content, 
+        p.created_at, 
+        COUNT(c.comment_id) AS comment_count,
+        u.username
+    FROM 
+        Posts p
+    LEFT JOIN 
+        Comments c ON p.post_id = c.post_id
+    JOIN
+        Users u ON p.user_id = u.user_id
+    GROUP BY 
+        p.post_id
+    ORDER BY 
+        p.created_at DESC;
+    `
+
+	rows, err := fs.DB.Query(query)
+	if err != nil {
+		log.Printf("Error executing query in GetAllPosts: %v", err)
 		return nil, err
 	}
 	defer rows.Close()
@@ -112,17 +165,17 @@ func (fs *ForumService) GetAllPosts() ([]realtimeforum.Posts, error) {
 	var posts []realtimeforum.Posts
 	for rows.Next() {
 		var post realtimeforum.Posts
-		err := rows.Scan(&post.PostID, &post.UserID, &post.Title, &post.Content, &post.CategoryID, &post.CreatedAt)
+		err := rows.Scan(&post.PostID, &post.UserID, &post.Title, &post.Content, &post.CreatedAt, &post.CommentCount, &post.Username)
 		if err != nil {
+			log.Printf("Error scanning row in GetAllPosts: %v", err)
 			return nil, err
 		}
-		fmt.Println(post)
 		posts = append(posts, post)
-
 	}
 
 	return posts, nil
 }
+
 func (fs *ForumService) SaveChatMessage(chat realtimeforum.Chats) error {
 	defer func() {
 		if r := recover(); r != nil {
@@ -158,20 +211,26 @@ func (fs *ForumService) SaveChatMessage(chat realtimeforum.Chats) error {
 	return nil
 }
 
-func (fs *ForumService) GetChatHistory(senderID, receiverID int64) ([]realtimeforum.Chats, error) {
+// forum.service.go
+
+func (fs *ForumService) GetChatHistory(senderID, receiverID int64, limit, offset int) ([]realtimeforum.Chats, error) {
 	// SQL query to fetch chat history between two users
 	query := `
-	SELECT c.message_id, c.sender_id, c.receiver_id, c.message, c.sent_at, u.username 
-	FROM Chats c
-	JOIN Users u ON c.sender_id = u.user_id
-	WHERE (c.sender_id = ? AND c.receiver_id = ?) OR (c.sender_id = ? AND c.receiver_id = ?)
-	ORDER BY c.sent_at ASC
-`
-	rows, err := fs.DB.Query(query, senderID, receiverID, receiverID, senderID)
+    SELECT c.message_id, c.sender_id, c.receiver_id, c.message, c.sent_at, u.username 
+    FROM Chats c
+    JOIN Users u ON c.sender_id = u.user_id
+    WHERE (c.sender_id = ? AND c.receiver_id = ?) OR (c.sender_id = ? AND c.receiver_id = ?)
+    ORDER BY c.sent_at DESC
+    LIMIT ? OFFSET ?
+    `
+	// Pass all required arguments to the query
+	rows, err := fs.DB.Query(query, senderID, receiverID, receiverID, senderID, limit, offset)
 	if err != nil {
+		log.Printf("Error executing query in GetChatHistory: %v", err)
 		return nil, err
 	}
 	defer rows.Close()
+
 	// Create a slice of chats to store the chat history
 	var chats []realtimeforum.Chats
 	for rows.Next() {
@@ -179,10 +238,10 @@ func (fs *ForumService) GetChatHistory(senderID, receiverID int64) ([]realtimefo
 		var sentAt string
 		err := rows.Scan(&chat.MessageID, &chat.SenderID, &chat.ReceiverID, &chat.MessageContent, &sentAt, &chat.SenderUsername)
 		if err != nil {
+			log.Printf("Error scanning row in GetChatHistory: %v", err)
 			return nil, err
 		}
-		// log.Printf("Fetched chat: %+v with SentAt: %s", chat, sentAt)
-
+		// Parse the sentAt time
 		chat.SentAt, err = time.Parse(time.RFC3339, sentAt)
 		if err != nil {
 			log.Printf("Error parsing sentAt: %v", err)
@@ -207,4 +266,28 @@ ON CONFLICT(user_id) DO UPDATE SET last_activity = CURRENT_TIMESTAMP;
 	return nil
 }
 
-// Add other methods for CRUD operations like CreateUser, UpdateUser, DeleteUser, etc.
+// GetCommentsByPostID retrieves all comments for a given post
+func (s *ForumService) GetCommentsByPostID(postID int) ([]realtimeforum.Comments, error) {
+	rows, err := s.DB.Query("SELECT comment_id, author_id, post_id, content, created_at FROM Comments WHERE post_id = ? ORDER BY created_at DESC", postID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var comments []realtimeforum.Comments
+	for rows.Next() {
+		var comment realtimeforum.Comments
+		if err := rows.Scan(&comment.CommentID, &comment.AuthorID, &comment.PostID, &comment.Content, &comment.CreatedAt); err != nil {
+			return nil, err
+		}
+		comments = append(comments, comment)
+	}
+
+	return comments, nil
+}
+
+// AddComment inserts a new comment into the database
+func (s *ForumService) AddComment(comment realtimeforum.Comments) error {
+	_, err := s.DB.Exec("INSERT INTO Comments (author_id, post_id, content, created_at) VALUES (?, ?, ?, ?)", comment.AuthorID, comment.PostID, comment.Content, comment.CreatedAt)
+	return err
+}

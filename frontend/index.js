@@ -389,6 +389,21 @@ function forumP() {
 
 }
 
+function newpostP() {
+    contentDiv.innerHTML = '';
+
+
+    setupNav()
+    appendNavAndContent(forumnavbar, postContainer)
+
+
+    createNewpostContent()
+    
+}
+
+
+
+
 // Add a single, comprehensive hashchange event listener
 window.addEventListener('hashchange', () => {
     updateView(); // This function should handle routing based on the current hash

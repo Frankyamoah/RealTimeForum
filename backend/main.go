@@ -127,9 +127,12 @@ func setupHTTPServer(wsServer *websocket.WebSocketServer) {
 	http.HandleFunc("/login", LoginRouteHandler(wsServer)) // Wrap the login function with WebSocket server
 	http.HandleFunc("/register", Register)
 	http.HandleFunc("/newpost", jwtMiddleware(NewPost))
+	http.HandleFunc("/posts/", jwtMiddleware(PostByID)) // Add this line
 	http.HandleFunc("/posts", jwtMiddleware(Posts))
 	http.HandleFunc("/ws", wsServer.HandleConnections)
 	http.HandleFunc("/chat-history", chatHistoryHandler)
+	http.HandleFunc("/comments", FetchComments)                // GET for fetching comments
+	http.HandleFunc("/add-comment", jwtMiddleware(AddComment)) // POST for adding a comment
 
 	// Start the server
 	port := ":8080"
@@ -373,14 +376,11 @@ func jwtMiddleware(next http.HandlerFunc) http.HandlerFunc {
 			return []byte(secretKey), nil
 		})
 
-		// If parsing the token resulted in an error, or if the token is invalid return an error
 		if err != nil || !token.Valid {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)
 			json.NewEncoder(w).Encode(map[string]string{"message": "Invalid token"})
-
-			http.Error(w, `{"message": "Authorization header is required"}`, http.StatusUnauthorized)
-			return
+			return // Ensure you return immediately after writing the response
 		}
 		// If the token is valid proceed with the next handler in the chain
 		// The next handler is passed as an argument to the middleware function
@@ -393,6 +393,8 @@ func jwtMiddleware(next http.HandlerFunc) http.HandlerFunc {
 func chatHistoryHandler(w http.ResponseWriter, r *http.Request) {
 	senderIDStr := r.URL.Query().Get("senderId")
 	receiverIDStr := r.URL.Query().Get("receiverId")
+	limitStr := r.URL.Query().Get("limit")
+	offsetStr := r.URL.Query().Get("offset")
 
 	senderID, err := strconv.ParseInt(senderIDStr, 10, 64)
 	if err != nil {
@@ -406,7 +408,27 @@ func chatHistoryHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	history, err := forumService.GetChatHistory(senderID, receiverID)
+	// Set default limit and offset
+	limit := 10
+	offset := 0
+
+	if limitStr != "" {
+		limit, err = strconv.Atoi(limitStr)
+		if err != nil {
+			http.Error(w, "Invalid limit", http.StatusBadRequest)
+			return
+		}
+	}
+
+	if offsetStr != "" {
+		offset, err = strconv.Atoi(offsetStr)
+		if err != nil {
+			http.Error(w, "Invalid offset", http.StatusBadRequest)
+			return
+		}
+	}
+
+	history, err := forumService.GetChatHistory(senderID, receiverID, limit, offset)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to fetch chat history: %v", err), http.StatusInternalServerError)
 		return
@@ -416,4 +438,103 @@ func chatHistoryHandler(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(history); err != nil {
 		http.Error(w, "Failed to encode chat history", http.StatusInternalServerError)
 	}
+}
+
+// FetchComments fetches all comments for a specific post
+func FetchComments(w http.ResponseWriter, r *http.Request) {
+	// Enable CORS
+	enableCors(&w)
+
+	postIDStr := r.URL.Query().Get("postId")
+	postID, err := strconv.Atoi(postIDStr)
+	if err != nil {
+		http.Error(w, "Invalid post ID", http.StatusBadRequest)
+		return
+	}
+
+	comments, err := forumService.GetCommentsByPostID(postID)
+	if err != nil {
+		http.Error(w, "Failed to retrieve comments", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(comments); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+// AddComment allows a user to add a comment to a specific post
+func AddComment(w http.ResponseWriter, r *http.Request) {
+	// Enable CORS
+	enableCors(&w)
+
+	// Get token from Authorization header
+	tokenString := r.Header.Get("Authorization")
+	if tokenString == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	tokenString = strings.TrimPrefix(tokenString, "Bearer ")
+	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(secretKey), nil
+	})
+
+	if err != nil || !token.Valid {
+		http.Error(w, "Invalid Token", http.StatusUnauthorized)
+		return
+	}
+
+	claims, ok := token.Claims.(*CustomClaims)
+	if !ok || !token.Valid {
+		http.Error(w, "Invalid Token", http.StatusUnauthorized)
+		return
+	}
+
+	userID := claims.UserID
+
+	var newComment realtimeforum.Comments
+	err = json.NewDecoder(r.Body).Decode(&newComment)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Set the author and timestamp
+	newComment.AuthorID = userID
+	newComment.CreatedAt = time.Now()
+
+	if err := forumService.AddComment(newComment); err != nil {
+		http.Error(w, "Failed to add comment", http.StatusInternalServerError)
+		return
+	}
+
+	response := map[string]string{"message": "Comment added successfully"}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+func PostByID(w http.ResponseWriter, r *http.Request) {
+	// Extract the post ID from the URL path
+	path := r.URL.Path
+	// Expected path: "/posts/{id}"
+	idStr := strings.TrimPrefix(path, "/posts/")
+	// Remove any trailing slashes
+	idStr = strings.TrimSuffix(idStr, "/")
+	postID, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid post ID", http.StatusBadRequest)
+		return
+	}
+
+	// Fetch the post from the database
+	post, err := forumService.GetPostByID(postID)
+	if err != nil {
+		http.Error(w, "Post not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(post)
 }
