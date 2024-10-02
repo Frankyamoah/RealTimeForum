@@ -402,6 +402,10 @@ function initializeWebSocket() {
                 console.log("Chat UI not ready, queueing message:", message);
                 queueMessage(message);
             }
+
+            // After processing the message, update the online users list
+            fetchAndUpdateOnlineUsersList();
+
         } catch (error) {
             console.error('Error parsing message JSON:', error);
         }
@@ -748,6 +752,22 @@ function resetNewMessageCount() {
     updateChatButtonIndicator(); // Assumes this function is also defined in `pages.js`
 }
 
+async function fetchAndUpdateOnlineUsersList() {
+    try {
+        const response = await fetch('http://localhost:8080/api/online-users');
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const users = await response.json();
+        console.log("Updating online users list with sorted data:", users);
+        updateOnlineUsersList(users); // Call your existing function with sorted users
+    } catch (error) {
+        console.error("Error fetching online users list:", error);
+    }
+}
+
 // Modify the updateOnlineUsersList function to log the updates
 function updateOnlineUsersList(users) {
     console.log("Updating online users list with data:", users);
@@ -757,7 +777,11 @@ function updateOnlineUsersList(users) {
         return;
     }
 
+    // Clear current user list
     onlineUsersContainer.innerHTML = '<h3>Online Users</h3>';
+
+    // If users are not already sorted, you can sort them here
+    users.sort((a, b) => new Date(b.lastMessageTime) - new Date(a.lastMessageTime));
 
     users.forEach(user => {
         const userDiv = document.createElement('div');
@@ -768,6 +792,8 @@ function updateOnlineUsersList(users) {
         onlineUsersContainer.appendChild(userDiv);
     });
 }
+
+//setInterval(fetchAndUpdateOnlineUsersList, 1000);
 
 function loadAndDisplayChatHistory(userId) {
     const currentUserId = sessionStorage.getItem('userId');

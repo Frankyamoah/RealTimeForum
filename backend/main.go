@@ -19,6 +19,12 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+type User struct {
+	SenderID        string `json:"sender_id"`
+	SenderUsername  string `json:"sender_username"`
+	LastMessageTime string `json:"last_message_time"`
+}
+
 // Global variables
 var (
 	db           *sql.DB
@@ -38,6 +44,54 @@ func init() {
 		panic(err)
 	}
 
+}
+
+func getOnlineUsers(w http.ResponseWriter, r *http.Request, db *sql.DB) {
+	query := `
+        SELECT sender_id, sender_username, MAX(sent_at) as last_message_time
+        FROM chats
+        GROUP BY sender_id
+        ORDER BY last_message_time DESC;
+    `
+
+	rows, err := db.Query(query)
+	if err != nil {
+		log.Printf("Error querying DB: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var users []User
+	for rows.Next() {
+		var user User
+		if err := rows.Scan(&user.SenderID, &user.SenderUsername, &user.LastMessageTime); err != nil {
+			log.Printf("Error scanning row: %v", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		users = append(users, user)
+	}
+
+	// Check for any errors during iteration
+	if err = rows.Err(); err != nil {
+		log.Printf("Error iterating rows: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	// Convert users to JSON
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(users); err != nil {
+		log.Printf("Error encoding JSON: %v", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+}
+
+func getOnlineUsersHandler(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		getOnlineUsers(w, r, db)
+	}
 }
 
 func cleanupInactiveUsers(db *sql.DB) {
@@ -133,6 +187,7 @@ func setupHTTPServer(wsServer *websocket.WebSocketServer) {
 	http.HandleFunc("/chat-history", chatHistoryHandler)
 	http.HandleFunc("/comments", FetchComments)                // GET for fetching comments
 	http.HandleFunc("/add-comment", jwtMiddleware(AddComment)) // POST for adding a comment
+	http.HandleFunc("/onlineUsers", getOnlineUsersHandler(db))
 
 	// Start the server
 	port := ":8080"

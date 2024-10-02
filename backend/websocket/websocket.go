@@ -164,6 +164,15 @@ func (server *WebSocketServer) getOnlineUsers() []realtimeforum.UserStatus {
 	return onlineUsers
 }
 
+func (server *WebSocketServer) broadcastOnlineUsers() {
+	onlineUsers := server.getOnlineUsers()
+	message := realtimeforum.Message{
+		Type:        "onlineUsers",
+		OnlineUsers: onlineUsers,
+	}
+	server.broadcastMessageToAllClients(message)
+}
+
 func (server *WebSocketServer) broadcastUserStatusChange(userID int64, isOnline bool) {
 	username, err := server.ForumService.GetUsernameByID(userID)
 	if err != nil {

@@ -1,0 +1,3796 @@
+Project Path: /Users/samuelcouchman/Documents/01Founders/gitea/realtimeforumFinal/real-time-forum
+
+Source Tree:
+
+```
+real-time-forum
+├── init_db.sql
+├── go.mod
+├── frontend
+│   ├── database.js
+│   ├── index.html
+│   ├── notes.js
+│   ├── index.js
+│   ├── package.json
+│   ├── style.css
+│   └── pages.js
+├── backend
+│   ├── websocket
+│   │   └── websocket.go
+│   ├── models
+│   │   └── model.go
+│   ├── TODOList.txt
+│   ├── db
+│   │   └── forumDB.sqlite
+│   ├── main.go
+│   └── services
+│       └── forum.service.go
+├── go.sum
+├── sqlchema.txt
+├── README
+└── package.json
+
+```
+
+`/Users/samuelcouchman/Documents/01Founders/gitea/realtimeforumFinal/real-time-forum/init_db.sql`:
+
+```````sql
+CREATE TABLE IF NOT EXISTS Users (
+user_id INTEGER PRIMARY KEY AUTOINCREMENT,
+nickname TEXT UNIQUE NOT NULL,
+age INT NOT NULL,
+gender TEXT NOT NULL,
+first_name TEXT NOT NULL,
+last_name TEXT NOT NULL,
+email TEXT UNIQUE NOT NULL,
+password TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS Posts (
+post_id INTEGER PRIMARY KEY AUTOINCREMENT,                             
+author_id INTEGER NOT NULL,
+title TEXT NOT NULL,                   
+content TEXT NOT NULL,
+category_id INTEGER NOT NULL,
+created_at TIMESTAMP NOT NULL, 
+FOREIGN KEY (author_id) REFERENCES Users(user_id), 
+FOREIGN KEY (category_id) REFERENCES categories (id)
+);
+
+CREATE TABLE IF NOT EXISTS Comments (
+comment_id INTEGER PRIMARY KEY AUTOINCREMENT,
+author_id INTEGER NOT NULL, 
+post_id INTEGER NOT NULL,
+content TEXT NOT NULL,
+created_at TIMESTAMP NOT NULL, 
+FOREIGN KEY (author_id) REFERENCES Users(user_id),
+FOREIGN KEY (post_id) REFERENCES Post(post_id)
+);
+
+CREATE TABLE IF NOT EXISTS Likes (
+like_id INTEGER PRIMARY KEY AUTOINCREMENT, 
+user_id INTEGER NOT NULL,         
+post_id INTEGER NOT NULL,          
+FOREIGN KEY (user_id) REFERENCES Users(user_id),
+FOREIGN KEY (post_id) REFERENCES Post(post_id)
+);
+
+
+CREATE TABLE IF NOT EXISTS Categories (
+category_id INTEGER PRIMARY KEY  AUTOINCREMENT, 
+category Name TEXT 
+);
+
+CREATE TABLE IF NOT EXISTS Post_Category(
+post_id INTEGER NOT NULL, 
+category_id INTEGER NOT NULL, 
+FOREIGN KEY (post_id) REFERENCES Posts(post_id),
+FOREIGN KEY (category_id) REFERENCES Categories(category_id)
+);
+
+CREATE TABLE IF NOT EXISTS Chats (
+message_id INTEGER PRIMARY KEY AUTOINCREMENT, 
+sender_id INTEGER NOT NULL, 
+receiver_id INTEGER NOT NULL, 
+message Content TEXT NOT NULL,
+sent_at TIMESTAMP NOT NULL, 
+FOREIGN KEY (sender_id) REFERENCES Users(user_id),
+FOREIGN KEY (receiver_id) REFERENCES Users(user_id)
+);
+
+
+CREATE TABLE IF NOT EXISTS Online_Users(
+user_id INTEGER NOT NULL, 
+Last_Activity_Time TIMESTAMP NOT NULL
+);
+
+```````
+
+`/Users/samuelcouchman/Documents/01Founders/gitea/realtimeforumFinal/real-time-forum/go.mod`:
+
+```````mod
+module livechat-system
+
+go 1.19
+
+require (
+	github.com/dgrijalva/jwt-go v3.2.0+incompatible
+	github.com/gorilla/websocket v1.5.0
+	github.com/mattn/go-sqlite3 v1.14.18
+)
+
+```````
+
+`/Users/samuelcouchman/Documents/01Founders/gitea/realtimeforumFinal/real-time-forum/frontend/database.js`:
+
+```````js
+const User = {
+	ID      : '' ,
+	Username : '',
+	Email   : '' ,
+	SessionID : '',
+}
+
+const Post = {
+	ID       ,
+	Title     ,
+	Content   ,
+	CreatedAt ,
+	Author    ,
+	Category  ,
+	Likes     ,
+	Dislikes  ,
+}
+
+const Comment = {
+	ID        ,
+	Content   ,
+	CreatedAt ,
+	Author    ,
+	PostID    ,
+	Likes     ,
+	Dislikes  ,
+}
+
+const Chats = {
+    Sender,
+    Recipient,
+    Content,
+    CreatedAt,
+}
+```````
+
+`/Users/samuelcouchman/Documents/01Founders/gitea/realtimeforumFinal/real-time-forum/frontend/index.html`:
+
+```````html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My Simple SPA</title>
+</head>
+<body>
+    <header>
+        <nav >
+          
+        </nav>
+    </header>
+    <div id="content">
+        <!-- Content will be dynamically loaded here -->
+    </div>
+    <script type="module" src="index.js"></script>
+    <script type="module" src="pages.js"></script>
+    <link rel="stylesheet" href="style.css">
+
+</body>
+</html>
+
+```````
+
+`/Users/samuelcouchman/Documents/01Founders/gitea/realtimeforumFinal/real-time-forum/frontend/notes.js`:
+
+```````js
+
+//////****  WEBSOCKET CONNECTION  ****//////
+
+// const socket = new WebSocket("ws://localhost:8080/ws")
+// const senderUser = document.getElementById("username")
+
+// socket.onopen = () => {
+// console.log("connected successfully")
+// }
+
+
+// socket.onmessage = function (msg) {
+// const chatDiv = document.getElementById("chat")
+// const data = JSON.parse(msg.data)
+// console.log(data)
+// console.log(msg.data)
+// const senderUsername = senderUser.value
+// console.log(senderUsername)
+
+// // if (data.users) {
+// //     const usersDiv = document.getElementById("users");
+// //    // usersDiv.innerHTML = "<p>Online users:</p>";
+// //     for (const user of data.users) {
+// //         usersDiv.innerHTML += "<p>" + user + "</p>";
+// //     }
+// // }
+
+// if (data.username && (data.username !== senderUsername)) {
+// chatDiv.innerHTML += "<p><strong>" + data.username + ": </strong>" + data.message + "</p>"
+
+// }else if (data.username === senderUsername){
+// data.username = "Me"
+// chatDiv.innerHTML += "<p><strong>" + data.username + ": </strong>" + data.message + "</p>"
+
+// }
+
+
+// console.log(data.message)
+
+
+// }
+
+
+//    // Update the user list
+// //    socket.onmessage = function (event) {
+// //     if (event.data.users) {
+// //         const usersDiv = document.getElementById("users");
+// //         usersDiv.innerHTML = "<p>Online users:</p>";
+// //         for (const user of event.data.users) {
+// //             usersDiv.innerHTML += "<p>" + user + "</p>";
+// //         }
+// //     }
+// // };
+
+// socket.onclose = event => {
+// console.log("connection closed:", event)
+// }
+
+// socket.onerror = err => {
+// console.log("error with ws connection:" , err)
+// }
+
+
+
+// function sendMessage() {
+// const usernameInput = document.getElementById("username")
+// const messageIpnut = document.getElementById("message")
+// const username = usernameInput.value
+// const message = messageIpnut.value
+
+// if (username && message) {
+// socket.send(JSON.stringify({username, message}))
+// messageIpnut.value = ""
+// console.log()
+
+// }else {
+// console.log('no username or message')
+// }
+
+// }
+
+// document.addEventListener("DOMContentLoaded", function() {
+// const sendButton = document.getElementById("sendMsg")
+
+// sendButton.addEventListener("click", sendMessage)
+// })
+
+
+```````
+
+`/Users/samuelcouchman/Documents/01Founders/gitea/realtimeforumFinal/real-time-forum/frontend/index.js`:
+
+```````js
+import { createForumContent, createProfileContent, createNewpostContent, createChatContent } from "./pages.js";
+import { resetNewMessageCount, handleLogout, processQueuedMessages, initialLoginComplete} from './pages.js';
+import {jwtDecode} from './node_modules/jwt-decode/build/esm/index.js'
+import { initializeWebSocket } from './pages.js';
+// Get references to the content div and the navigation links
+const contentDiv = document.getElementById('content');
+const postContainer = document.createElement('div')
+const forumnavbar = document.createElement('nav')
+ 
+
+// View templates
+const postobj = { 
+    Title : '',
+    Author : '',
+    Content : '',
+}
+
+function navToWindow(url) {
+    window.location.href = url
+}
+
+export function setupNav() {
+   
+    forumnavbar.innerHTML = ''
+
+
+ // Create profile button
+    const profilebtn = document.createElement('button');
+    profilebtn.setAttribute('class', 'button'); // Apply class for styling
+    profilebtn.setAttribute('id', 'profilebtn');
+    profilebtn.textContent = 'myProfile';
+    profilebtn.addEventListener('click', function(event) {
+        event.preventDefault();
+        navToWindow('#/myProfile');
+    });
+    
+    const chatbtn = document.createElement('button')
+    chatbtn.setAttribute('class', 'button'); // Apply class for styling
+    chatbtn.setAttribute('id', 'chatbtn');
+    chatbtn.textContent = 'myChats';
+    chatbtn.addEventListener('click', function(event) {
+        event.preventDefault();
+        navToWindow('#/myChats');
+    });
+ 
+    const newpostbtn = document.createElement('button')
+    newpostbtn.setAttribute('class', 'button'); // Apply class for styling)
+    newpostbtn.setAttribute('id', 'newpostbtn');
+    newpostbtn.textContent = 'Create New Post';
+    newpostbtn.addEventListener('click', function(event) {
+        event.preventDefault();
+        navToWindow('#/newpost');
+    });
+
+    const homebtn = document.createElement('button')
+    homebtn.setAttribute('class', 'button');
+    homebtn.setAttribute('id', 'homebtn');
+    homebtn.textContent = 'Back To Forum'
+    homebtn.addEventListener('click', function(event) {
+        event.preventDefault();
+        navToWindow('#/forum');
+    });
+    
+    const logoutbtn = document.createElement('button');
+    logoutbtn.setAttribute('class','button');
+    logoutbtn.setAttribute('id','logoutbtn');
+    logoutbtn.textContent = 'Logout';
+    logoutbtn.addEventListener('click',  handleLogout);
+   
+ 
+    forumnavbar.appendChild(profilebtn)
+    forumnavbar.appendChild(chatbtn)
+    forumnavbar.appendChild(newpostbtn)
+    forumnavbar.appendChild(homebtn)
+    forumnavbar.appendChild(logoutbtn)
+    
+    contentDiv.appendChild(forumnavbar)
+
+}
+
+function appendNavAndContent(navbar, container) {
+    contentDiv.appendChild(navbar)
+    contentDiv.appendChild(container)
+}
+// Function to update the view based on the current hash
+function renderPage(page) {
+
+        contentDiv.innerHTML = ''
+
+   // const currentHash = window.location.hash;
+    switch (page) {
+        case '#/':
+           loginP()
+        break;
+           case '#/forum' :
+            forumP()
+            break;
+            case '#/myProfile' :
+                profileP()
+                break;
+                case '#/myChats' :
+                    chatsP()
+                    break;
+                    case '#/newpost' :
+                        newpostP()
+                        break;
+                        case '#/register' :
+                            registerP()
+                            break;
+        default:
+            contentDiv.textContent   = '<h1>Page not found</h1>';
+            break;
+    }
+}
+
+
+function loginP() {
+    const token = localStorage.getItem('token');
+    if (token) {
+        // initializeWebSocket();
+        window.location.href = '#/forum';
+        return;
+    }
+
+    const loginPage = document.createElement('div');
+    loginPage.setAttribute('class', 'loginpge');
+
+    const title = document.createElement('h1');
+    title.textContent = 'LOGIN';
+
+    const loginForm = document.createElement('form');
+    loginForm.setAttribute('method', 'post');
+    loginForm.setAttribute('action', '#');
+    loginForm.setAttribute('class', 'loginForm');
+
+    const usernameInput = document.createElement("input");
+    usernameInput.setAttribute('type', 'text');
+    usernameInput.setAttribute('id', 'usernameinput');
+    usernameInput.setAttribute('placeholder', 'Please enter your email or username...');
+
+    const passwordInput = document.createElement("input");
+    passwordInput.setAttribute('type', 'password');
+    passwordInput.setAttribute('id', 'passwordinput');
+    passwordInput.setAttribute('placeholder', 'Please enter your password...');
+
+    const submitbtn = document.createElement('input');
+    submitbtn.setAttribute('type', 'submit');
+    submitbtn.setAttribute('value', 'login');
+    submitbtn.setAttribute('id', 'submitbtn');
+
+    const registerLink = document.createElement('a');
+    registerLink.setAttribute('href', '#/register');
+    registerLink.textContent = "register ";
+
+    loginForm.appendChild(usernameInput);
+    loginForm.appendChild(document.createElement('br'));
+    loginForm.appendChild(document.createElement('br'));
+    loginForm.appendChild(passwordInput);
+    loginForm.appendChild(document.createElement('br'));
+    loginForm.appendChild(document.createElement('br'));
+    loginForm.appendChild(submitbtn);
+    loginForm.appendChild(document.createElement('br'));
+    loginForm.appendChild(document.createElement('br'));
+    loginForm.appendChild(registerLink);
+
+    loginPage.appendChild(title);
+    loginPage.appendChild(loginForm);
+
+    contentDiv.appendChild(loginPage);
+
+    loginForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+
+        const username = usernameInput.value;
+        const password = passwordInput.value;
+
+     
+        try {
+            // Make a POST request to your /login endpoint
+            const response = await fetch('http://localhost:8080/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ username, password })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                console.log('Data Received', data);
+                localStorage.setItem('token', data.token);
+                localStorage.setItem('username', data.username);
+                localStorage.setItem('userId', data.userId);
+                sessionStorage.setItem('userId', data.userId);
+
+                window.location.href = '#/forum';
+            } else {
+                const errorData = await response.json();
+                let errorMessage = 'Login failed';
+                
+                if (errorData.message) {
+                    errorMessage += `: ${errorData.message}`;
+                } else if (response.status === 401) {
+                    errorMessage += ': Invalid username or password';
+                } else if (response.status === 404) {
+                    errorMessage += ': User not found';
+                }
+                
+                alert(errorMessage);
+            }
+        } catch (error) {
+            console.error('Login request failed', error);
+            alert('Login failed: An unexpected error occurred. Please try again later.');
+        }
+    });
+}
+// document.addEventListener('DOMContentLoaded', loginP);
+
+function registerP() {
+    const registerPage = document.createElement('div');
+    registerPage.setAttribute('class', 'registerpage');
+
+    const title = document.createElement('h1');
+    title.textContent = 'REGISTER';
+
+    const registerForm = document.createElement('form');
+    registerForm.setAttribute('method', 'post');
+    registerForm.setAttribute('action', '#/');
+    registerForm.setAttribute('class', 'registerform');
+
+    const username = document.createElement('input')
+    username.setAttribute('type', 'text');
+    username.setAttribute('id', 'newusername');
+    username.setAttribute('placeholder', 'Please create a username');
+
+    const age = document.createElement('input')
+    age.setAttribute('type', 'text');
+    age.setAttribute('id', 'newage');
+    age.setAttribute('placeholder', 'Please enter your age');
+
+    
+    const gender = document.createElement('select');
+    gender.setAttribute('id', 'newgender'); 
+    const option1 = document.createElement('option');
+    option1.value = 'male';
+    option1.text = 'Male';
+    const option2 = document.createElement('option');
+    option2.value = 'female';
+    option2.text = 'Female';
+    const option3 = document.createElement('option');
+    option3.value = 'other';
+    option3.text = 'Other';
+    gender.appendChild(option1);
+    gender.appendChild(option2);
+    gender.appendChild(option3);
+
+    const firstname = document.createElement('input')
+    firstname.setAttribute('type', 'text');
+    firstname.setAttribute('id', 'newfirstname');
+    firstname.setAttribute('placeholder', 'Please enter your first name')
+
+    const lastname = document.createElement('input')
+    lastname.setAttribute('type', 'text');
+    lastname.setAttribute('id', 'newlastname');
+    lastname.setAttribute('placeholder', 'Please enter your last name')
+
+    const email = document.createElement('input')
+    email.setAttribute('type', 'text');
+    email.setAttribute('id', 'newemail');
+    email.setAttribute('placeholder', 'Please enter your email')
+
+    const password = document.createElement('input')
+    password.setAttribute('type', 'text');
+    password.setAttribute('id', 'newpassword');
+    password.setAttribute('placeholder', 'Please create a password')
+
+    const submitbtn = document.createElement('input');
+    submitbtn.setAttribute('type', 'submit');
+    submitbtn.setAttribute('value', 'register');
+    submitbtn.setAttribute('id', 'submitbtn');
+
+
+    registerForm.appendChild(username)
+    registerForm.appendChild(document.createElement('br'));
+    registerForm.appendChild(document.createElement('br'));
+    registerForm.appendChild(age)
+    registerForm.appendChild(document.createElement('br'));
+    registerForm.appendChild(document.createElement('br'));
+    registerForm.appendChild(gender)
+    registerForm.appendChild(document.createElement('br'));
+    registerForm.appendChild(document.createElement('br'));
+    registerForm.appendChild(firstname)
+    registerForm.appendChild(document.createElement('br'));
+    registerForm.appendChild(document.createElement('br'));
+    registerForm.appendChild(lastname)
+    registerForm.appendChild(document.createElement('br'));
+    registerForm.appendChild(document.createElement('br'));
+    registerForm.appendChild(email)
+    registerForm.appendChild(document.createElement('br'));
+    registerForm.appendChild(document.createElement('br'));
+    registerForm.appendChild(password)
+    registerForm.appendChild(document.createElement('br'));
+    registerForm.appendChild(document.createElement('br'));
+    registerForm.appendChild(submitbtn)
+
+    registerPage.appendChild(title)
+    registerPage.appendChild(registerForm)
+    contentDiv.appendChild(registerPage)
+
+    registerForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+
+        const user = {
+            username: username.value,
+            age: parseInt(age.value), // Convert age to an integer if needed
+            gender: gender.value,
+            first_name: firstname.value,
+            last_name: lastname.value,
+            email: email.value,
+            password: password.value
+        };
+
+
+        const response = await fetch('http://localhost:8080/register' ,{
+            method : 'POST',
+            headers : {
+                'Content-Type' : 'application/json'
+            },
+            body: JSON.stringify(user)
+        })
+
+        if (response.ok) {
+            const data = await response.json();
+            console.log(JSON.stringify(data))
+            window.location.href = '#/';
+
+        } else {
+            alert('error!!')
+        }
+    })
+
+
+
+}
+ 
+async function profileP() {
+
+    contentDiv.innerHTML = '';
+    setupNav()
+    appendNavAndContent(forumnavbar, postContainer)
+    createProfileContent()
+
+    
+    
+}
+
+
+
+
+async function chatsP() {
+    contentDiv.innerHTML = '';
+    setupNav();
+    
+    resetNewMessageCount();
+
+    if (localStorage.getItem('token')) {
+        createChatContent(); // Set up the chat UI
+        await new Promise(resolve => setTimeout(resolve, 100)); // Short delay to ensure DOM is updated
+        // chatUIReady = true; // Mark the chat UI as ready
+        processQueuedMessages(); // Process any messages that were received before UI was ready
+
+        // If this is not the initial login, request the online users list again
+        if (initialLoginComplete) {
+            setTimeout(() => {
+                requestOnlineUsersList();
+            }, 2000); // Delay of 1 second
+        }
+    } else {
+        alert("Please log in to view chats.");
+        window.location.href = '#/';
+    }
+}
+
+
+
+function forumP() {
+
+
+    contentDiv.innerHTML = '';
+
+   setupNav()
+   appendNavAndContent(forumnavbar, postContainer)
+
+
+
+   createForumContent()
+   
+
+
+
+}
+
+function newpostP() {
+    contentDiv.innerHTML = '';
+
+
+    setupNav()
+    appendNavAndContent(forumnavbar, postContainer)
+
+
+    createNewpostContent()
+    
+}
+
+
+
+
+// Add a single, comprehensive hashchange event listener
+window.addEventListener('hashchange', () => {
+    updateView(); // This function should handle routing based on the current hash
+
+    // Handle WebSocket closure when navigating away from chat
+    if (window.location.hash !== '#/myChats') {
+        if (typeof closeWebSocket === 'function') {
+            closeWebSocket();
+        }
+        if (typeof chatUIReady !== 'undefined') {
+            chatUIReady = false;
+        }
+    }
+});
+
+//Consider using a client-side router library (like React Router or Vue Router) for a more structured and scalable navigation system to 
+//naviaget between sections of the app
+
+// Define the updateView function if it doesn't already exist
+function updateView() {
+    const currentHash = window.location.hash;
+    renderPage(currentHash || '#/');
+}
+
+
+
+// Ensure this function is called when the page loads
+document.addEventListener('DOMContentLoaded', () => {
+    updateView();
+});
+```````
+
+`/Users/samuelcouchman/Documents/01Founders/gitea/realtimeforumFinal/real-time-forum/frontend/package.json`:
+
+```````json
+{
+  "name": "frontend",
+  "version": "1.0.0",
+  "description": "real-time-forum-frontend",
+  "main": "index.js",
+  "scripts": {
+    "test": "myTest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://learn.01founders.co/git/suomar/real-time-forum.git"
+  },
+  "keywords": [
+    "real-time-forum"
+  ],
+  "author": "sim",
+  "license": "ISC",
+  "dependencies": {
+    "jwt-decode": "^4.0.0"
+  }
+}
+
+```````
+
+`/Users/samuelcouchman/Documents/01Founders/gitea/realtimeforumFinal/real-time-forum/frontend/style.css`:
+
+```````css
+:root {
+    --bg-color: #f0f0f0;
+    --text-color: #333;
+    --nav-bg: #2b2c2c;
+    --nav-text: #fff;
+    --chat-bg: #fff;
+    --message-bg: #e7e7e7;
+    --message-border: #007bff;
+    --sent-message-bg: #dcf8c6;
+    --sent-message-border: #34b7f1;
+    --broadcast-bg: #f0f0f0;
+    --broadcast-border: #f9a825;
+    --online-users-bg: #f9f9f9;
+    --online-indicator: #4CAF50;
+    --offline-indicator: #ccc;
+    --input-bg: #fff;
+    --input-border: #ccc;
+    --button-bg: #007bff;
+    --button-text: #fff;
+    --button-hover: #0056b3;
+    --post-bg: #fff;
+    --post-border: #ccc;
+    --notification-bg: #ffffe0;
+    --notification-border: #ffeb3b;
+    --sent-message-bg: #dcf8c6;
+    --sent-message-border: #34b7f1;
+    --received-message-bg: #e1e1e1;
+    --received-message-border: #7f8c8d;
+}
+
+.dark-mode {
+    --bg-color: #1a1a1a;
+    --text-color: #e0e0e0;
+    --nav-bg: #2c2c2c;
+    --nav-text: #fff;
+    --chat-bg: #2c2c2c;
+    --message-bg: #424242;
+    --message-border: #007bff;
+    --sent-message-bg: #2c3e50;
+    --sent-message-border: #3498db;
+    --broadcast-bg: #3c3c3c;
+    --broadcast-border: #f39c12;
+    --online-users-bg: #333333;
+    --online-indicator: #2ecc71;
+    --offline-indicator: #95a5a6;
+    --input-bg: #333333;
+    --input-border: #4a4a4a;
+    --button-bg: #3498db;
+    --button-text: #ffffff;
+    --button-hover: #2980b9;
+    --post-bg: #2c2c2c;
+    --post-border: #3a3a3a;
+    --notification-bg: #2c2c2c;
+    --notification-border: #f39c12;
+    --sent-message-bg: #056162;
+    --sent-message-border: #25D366;
+    --received-message-bg: #262D31;
+    --received-message-border: #0D7E8C;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    line-height: 1.6;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+#content {
+    margin: 20px auto;
+    width: 90%;
+    background-color: transparent;
+    border: 1px solid var(--post-border);
+    padding: 20px;
+    border-radius: 5px;
+}
+
+nav {
+    width: 100%;
+    display: flex;
+    justify-content: space-evenly;
+    background-color: var(--nav-bg);
+    padding: 10px 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.button {
+    color: var(--nav-text);
+    padding: 10px 20px;
+    margin: 0 10px;
+    border-radius: 5px;
+    text-decoration: none;
+    background-color: var(--nav-bg);
+    display: inline-block;
+    transition: background-color 0.3s ease;
+}
+
+.button:hover {
+    background-color: var(--button-hover);
+}
+
+#chat-container {
+    background-color: var(--chat-bg);
+    border: 1px solid var(--post-border);
+    border-radius: 5px;
+    display: grid;
+    grid-template-columns: 1fr 200px;
+    grid-template-rows: auto 1fr auto;
+    gap: 10px;
+    max-width: 800px;
+    margin: 20px auto;
+    padding: 10px;
+    height: 500px;
+}
+
+#messages-container {
+    grid-column: 1 / 2;
+    grid-row: 1 / 3;
+    overflow-y: auto; /* Ensure overflow is set */
+    padding: 10px;
+    background-color: var(--chat-bg);
+    border: 1px solid var(--post-border);
+    border-radius: 5px;
+    height: 400px; /* Add the height here */
+}
+
+
+#online-users-container {
+    grid-column: 2 / 3;
+    grid-row: 1 / 4;
+    background-color: var(--online-users-bg);
+    border: 1px solid var(--post-border);
+    padding: 10px;
+    border-radius: 5px;
+    overflow-y: auto;
+    max-height: 100%;
+}
+
+#message-input {
+    grid-column: 1 / 2;
+    grid-row: 3 / 4;
+    width: calc(100% - 70px);
+    margin-right: 10px;
+    padding: 10px;
+    border: 1px solid var(--input-border);
+    border-radius: 5px;
+    background-color: var(--input-bg);
+    color: var(--text-color);
+}
+
+#send-button {
+    grid-column: 1 / 2;
+    grid-row: 3 / 4;
+    justify-self: end;
+    align-self: start;
+    width: 60px;
+    height: 40px;
+    background-color: var(--button-bg);
+    color: var(--button-text);
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+#send-button:hover {
+    background-color: var(--button-hover);
+}
+
+#online-users-container {
+    background-color: var(--online-users-bg);
+    border: 1px solid var(--post-border);
+    padding: 10px;
+    margin-top: 10px;
+    height: auto;
+    border-radius: 5px;
+    overflow-y: auto;
+}
+
+.loading-spinner {
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #3498db;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    animation: spin 1s linear infinite;
+    z-index: 1000;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.no-more-messages {
+    text-align: center;
+    color: #888;
+    margin: 10px 0;
+    font-size: 0.9em;
+}
+
+.online-user {
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 5px;
+    transition: background-color 0.2s ease;
+}
+
+.online-user:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+.online-user-indicator {
+    height: 10px;
+    width: 10px;
+    border-radius: 50%;
+    margin-right: 10px;
+}
+
+.online-user.online .online-user-indicator {
+    background-color: var(--online-indicator);
+}
+
+.online-user.offline .online-user-indicator {
+    background-color: var(--offline-indicator);
+}
+
+#online-users-container h3 {
+    margin-top: 0;
+    color: var(--text-color);
+}
+
+.message {
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 5px;
+    max-width: 80%;
+    word-wrap: break-word;
+}
+
+.message.private-message {
+    background-color: var(--received-message-bg);
+    border-left: 5px solid var(--received-message-border);
+    margin-right: auto;
+    margin-left: 0;
+}
+
+.message.private-message.outgoing {
+    background-color: var(--sent-message-bg);
+    border-left: none;
+    border-right: 5px solid var(--sent-message-border);
+    margin-left: auto;
+    margin-right: 0;
+}
+
+.message.broadcast-message {
+    background-color: var(--broadcast-bg);
+    border-left: 5px solid var(--broadcast-border);
+}
+
+.message-content {
+    margin-bottom: 5px;
+    color: var(--text-color);
+}
+
+.message-sender {
+    font-weight: bold;
+    margin-right: 5px;
+}
+
+.message-time {
+    font-size: 0.8em;
+    color: var(--text-color);
+    opacity: 0.7;
+    margin-top: 5px;
+    display: block;
+}
+
+#notifications-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    width: 300px;
+    z-index: 1000;
+}
+
+.notification {
+    background-color: var(--notification-bg);
+    border-left: 5px solid var(--notification-border);
+    color: var(--text-color);
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    font-style: italic;
+}
+
+#chat-with-label {
+    font-weight: bold;
+    margin-bottom: 10px;
+    padding: 5px;
+    background-color: var(--chat-bg);
+    border: 1px solid var(--post-border);
+    border-radius: 5px;
+}
+
+.no-messages {
+    text-align: center;
+    color: #999;
+    margin-top: 180px;
+}
+
+#messages-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+#messages-container::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 5px;
+}
+
+#messages-container::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+.postContainer {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    margin: 20px auto;
+    width: 80%;
+    background-color: var(--post-bg);
+    border: 1px solid var(--post-border);
+    padding: 20px;
+    border-radius: 5px;
+}
+
+.singlepost {
+    border: 1px solid var(--post-border);
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+}
+
+input, select, textarea {
+    width: 60%;
+    padding: 10px;
+    margin: 5px 0;
+    border: 1px solid var(--input-border);
+    border-radius: 5px;
+    background-color: var(--input-bg);
+    color: var(--text-color);
+}
+
+input[type="submit"], .submit {
+    background-color: var(--button-bg);
+    color: var(--button-text);
+    border: none;
+    cursor: pointer;
+}
+
+input[type="submit"]:hover, .submit:hover {
+    background-color: var(--button-hover);
+}
+
+/* Mode toggle switch */
+.mode-toggle {
+    display: inline-block;
+    width: 50px;
+    height: 25px;
+    background-color: #ccc;
+    border-radius: 25px;
+    position: relative;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.mode-toggle::after {
+    content: '';
+    position: absolute;
+    width: 21px;
+    height: 21px;
+    border-radius: 50%;
+    background-color: white;
+    top: 2px;
+    left: 2px;
+    transition: transform 0.3s ease;
+}
+
+.dark-mode .mode-toggle {
+    background-color: #4CAF50;
+}
+
+.dark-mode .mode-toggle::after {
+    transform: translateX(25px);
+}
+
+@media (max-width: 768px) {
+    #chat-container {
+        grid-template-columns: 1fr;
+    }
+    
+    nav {
+        flex-direction: column;
+    }
+    
+    .button {
+        margin: 5px 0;
+    }
+    
+    .postContainer {
+        grid-template-columns: 1fr;
+    }
+}
+```````
+
+`/Users/samuelcouchman/Documents/01Founders/gitea/realtimeforumFinal/real-time-forum/frontend/pages.js`:
+
+```````js
+import {jwtDecode} from './node_modules/jwt-decode/build/esm/index.js'
+import {setupNav} from './index.js'
+// Create a new div for the post container
+const postContainer = document.createElement('div')
+// Set the id of the post container to postcontainer
+postContainer.setAttribute('id', 'postcontainer')
+
+let ws; // Declare ws at a higher scope
+let chatUIReady = false;
+let messageQueue = [];
+let isConnecting = false;
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 5;
+const MAX_STORED_MESSAGES = 20; // 
+let newMessageCount = 0;
+let lastBroadcastTimestamp = 0;
+const contentDiv = document.getElementById('content');
+let chatHistoryOffset = 0;
+const chatHistoryLimit = 10;
+let hasMoreMessages = true
+let isLoadingMessages = false;
+
+function formatDate(isoDateString) {
+    const date = new Date(isoDateString);
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0'); // Months are 0-based
+    const year = date.getFullYear();
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+
+    return `${day}/${month}/${year} at ${hours}:${minutes}`;
+}
+
+
+// Fetches posts from backend and displays them on the forum page
+async function createForumContent() {
+    const token = localStorage.getItem('token'); // Ensure this line is within the function
+    if (!token) {
+        console.error("No token found. You must be logged in to view posts.");
+        return; // Optionally, redirect to login page or display a message prompting login
+    }
+   try{
+    const response = await fetch('http://localhost:8080/posts', {
+        method : 'GET',
+        headers : {
+            'Content-Type' : 'application/json',
+            'Authorization': `Bearer ${token}`
+        }
+    })
+    if (!response.ok) {
+        throw new Error('Failed to fetch posts');
+    }
+    const postData = await response.json();
+    console.log(postData);
+    displayPostData(postData);
+} catch (error) {
+    console.error('Error fetching all posts', error);
+}
+
+}
+
+function displayPostData(postData) {
+    postContainer.innerHTML = '';
+
+    // Loop through each post in the postData array (reversed to show the latest post first)
+    postData.forEach(post => {
+        const singlePost = document.createElement('div');
+        singlePost.setAttribute('class', 'singlepost');
+        
+        const titleElement = document.createElement("h2");
+        titleElement.textContent = `${post.post_title}`;
+        titleElement.style.cursor = 'pointer'; // Change cursor to pointer
+        titleElement.addEventListener('click', () => {
+            viewPostWithComments(post.post_id);
+        });
+
+        // Display author (use the dynamically fetched username)
+        const authorElement = document.createElement("p");
+        authorElement.textContent = `By ${post.username}`; 
+        
+        const contentElement = document.createElement("p");
+        contentElement.textContent = `${post.post_content}`;
+        
+        const createdAtElement = document.createElement("p");
+        createdAtElement.textContent = `Posted on ${formatDate(post.created_at)}`;
+
+        // Display the number of comments
+        const commentsElement = document.createElement("p");
+        commentsElement.textContent = `${post.comment_count || 0} comments`; 
+
+        // Append the elements to the singlePost div
+        singlePost.appendChild(titleElement);
+        singlePost.appendChild(authorElement);
+        singlePost.appendChild(contentElement);
+        singlePost.appendChild(createdAtElement);
+        singlePost.appendChild(commentsElement);
+
+        postContainer.appendChild(singlePost);
+    });
+
+    contentDiv.appendChild(postContainer);
+}
+
+
+
+
+
+
+
+async function createProfileContent() {
+    try{
+       const response = await fetch('http://localhost:8080/users', {
+           method : 'GET',
+           headers : {
+               'Content-Type' : 'application/json'
+           }
+       }) 
+       if (!response.ok) {
+           throw new Error('failed to fetch user data')
+       }
+ 
+       const userData = await response.json();
+       
+       displayUserData(userData)
+       
+   }catch(error) {
+       console.error('error fetching user data:', error)
+   }
+ }
+
+
+function displayUserData(userData) {
+   const userContainer = document.createElement('div')
+
+   userData.forEach(user => {
+       const userElement = document.createElement('div')
+       userElement.textContent = `username : ${user.username}, email: ${user.email}`
+       userContainer.appendChild(userElement)
+   })
+   postContainer.appendChild(userContainer)
+   contentDiv.appendChild(postContainer)
+}
+
+
+
+
+function logToLocalStorage(message) {
+    if (message.includes('WebSocket message received: {"type":"onlineUsers"')) {
+        // Don't store online user messages
+        return;
+    }
+
+    let logs = JSON.parse(localStorage.getItem('chatLogs') || '[]');
+    logs.push(message);
+    
+    // Keep only the last MAX_STORED_MESSAGES
+    if (logs.length > MAX_STORED_MESSAGES) {
+        logs = logs.slice(-MAX_STORED_MESSAGES);
+    }
+    
+    localStorage.setItem('chatLogs', JSON.stringify(logs));
+}
+
+function displayLocalStorageLogs() {
+    const logs = JSON.parse(localStorage.getItem('webSocketLogs')) || [];
+    logs.forEach(log => {
+        console.log(`[${log.timestamp}] ${log.message}`);
+    });
+}
+
+
+
+
+function closeWebSocket() {
+    if (ws) {
+        ws.close();
+        ws = null;
+    }
+}
+
+// Call this function when logging out or navigating away from chat
+function handleLogout() {
+    closeWebSocket();
+    localStorage.removeItem('token');
+    sessionStorage.clear();
+    window.location.href = '#/';
+}
+
+
+
+
+// Call this function after your nav is set up
+document.addEventListener('DOMContentLoaded', setupDarkModeToggle);
+
+function createChatContent() {
+    contentDiv.innerHTML = '';
+    setupNav();
+
+    // Chat container setup
+    const chatContainer = document.createElement('div');
+    chatContainer.id = 'chat-container';
+
+    const chatWithLabel = document.createElement('div');
+    chatWithLabel.id = 'chat-with-label';
+    chatWithLabel.textContent = 'No active chat'; // Default text when no chat is selected
+    chatWithLabel.classList.add('chat-with-label');
+    chatContainer.appendChild(chatWithLabel); // Append label to the chat container
+
+    // Container for chat messages
+    const messagesContainer = document.createElement('div');
+    messagesContainer.id = 'messages-container';
+    chatContainer.appendChild(messagesContainer); // Append messages container to the chat container
+
+    // **Add the loading indicator here**
+    const loadingIndicator = document.createElement('div');
+    loadingIndicator.id = 'loading-indicator';
+    loadingIndicator.className = 'loading-spinner';
+    loadingIndicator.style.display = 'none';
+    loadingIndicator.style.position = 'absolute';
+    loadingIndicator.style.top = '10px';
+    loadingIndicator.style.left = '50%';
+    loadingIndicator.style.transform = 'translateX(-50%)';
+    messagesContainer.appendChild(loadingIndicator);
+
+
+    chatContainer.appendChild(messagesContainer); // Append messages container to the chat container
+ 
+     // Notifications container setup
+     const notificationsContainer = document.createElement('div');
+     notificationsContainer.id = 'notifications-container';
+     chatContainer.appendChild(notificationsContainer); // Append it to the chat container or another appropriate place
+
+   // Container for displaying online users
+   const onlineUsersContainer = document.createElement('div');
+   onlineUsersContainer.id = 'online-users-container';
+   const onlineUsersTitle = document.createElement('h3');
+   onlineUsersTitle.textContent = "Online Users";
+   onlineUsersContainer.appendChild(onlineUsersTitle); // Append title to online users container
+   chatContainer.appendChild(onlineUsersContainer); 
+
+    // Input for typing messages
+    const messageInput = document.createElement('input');
+    messageInput.type = 'text';
+    messageInput.id = 'message-input';
+    messageInput.placeholder = "Type your message here..."; // Added placeholder text for clarity
+    chatContainer.appendChild(messageInput); // Append message input to the chat container
+
+
+    // Add a placeholder for no messages
+    const noMessagesPlaceholder = document.createElement('div');
+    noMessagesPlaceholder.id = 'no-messages';
+    noMessagesPlaceholder.classList.add('no-messages');
+    noMessagesPlaceholder.textContent = 'No messages yet. Start a conversation!';
+    messagesContainer.appendChild(noMessagesPlaceholder);
+
+
+    // Send button for submitting messages
+    const sendButton = document.createElement('button');
+    sendButton.textContent = 'Send';
+    sendButton.id = 'send-button';
+    sendButton.addEventListener('click', function(event) {
+        event.preventDefault(); // Only needed if the button is inside a form
+        sendMessage();
+    });
+    chatContainer.appendChild(sendButton); // Append send button to the chat container
+
+    messageInput.addEventListener('keypress', function(event) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            sendMessage();
+        }
+    });
+
+    // Append the fully configured chatContainer to the main content div
+    contentDiv.appendChild(chatContainer);
+
+
+    chatUIReady = true;
+    console.log("Chat UI is ready");
+
+
+    // Initialize WebSocket connection and other necessary logic
+    initializeWebSocket();
+    processQueuedMessages();
+
+}
+// Function to handle sending messages
+function sendMessage() {
+    console.log("sendMessage triggered");
+
+    const messageInput = document.getElementById('message-input');
+    const message = messageInput.value.trim();
+    const currentChatUser = sessionStorage.getItem('currentChatUser');
+    const currentChatUserId = sessionStorage.getItem('currentChatUserId'); // Retrieve the user ID from sessionStorage
+    const senderId = localStorage.getItem('userId'); // Get user ID from local storage
+    console.log("Current Chat User ID:", currentChatUserId); // Debug log
+
+    if (!message) {
+        console.error("Message or receiver ID missing.");
+        return;
+    }
+    const payload = {
+        type: currentChatUser ? 'private' : 'broadcast',
+        message: message,
+        receiverId: currentChatUserId ? parseInt(currentChatUserId) : null, // Use user ID for directing the message
+        senderUsername: localStorage.getItem('username'),
+        senderId: parseInt(senderId) // Ensure senderId is included and correctly formatted as an integer
+    };
+
+
+    // console.log("Sending message with payload:", JSON.stringify(payload)); // Ensure JSON structure is correct
+    displayOutgoingMessage(payload);  // Display the message immediately in the UI
+
+
+  // Try sending the message and catch any errors
+  try {
+    ws.send(JSON.stringify(payload));
+} catch (error) {
+    console.error('Error sending message:', error);
+}
+    messageInput.value = '';
+    
+    function displayOutgoingMessage(message) {
+        try {
+            const messagesContainer = document.getElementById('messages-container');
+            if (!messagesContainer) {
+                console.error('Messages container not found');
+                return;
+            }
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message private-message outgoing`;
+            
+            const contentSpan = document.createElement('span');
+            contentSpan.className = 'message-content';
+            contentSpan.textContent = `${message.senderUsername}: ${message.message}`;
+            messageDiv.appendChild(contentSpan);
+    
+            const timeSpan = document.createElement('span');
+            timeSpan.className = 'message-time';
+            timeSpan.textContent = new Date().toLocaleTimeString();
+            messageDiv.appendChild(timeSpan);
+    
+            messagesContainer.appendChild(messageDiv);
+            scrollMessagesToBottom();
+        } catch (error) {
+            console.error('Error displaying outgoing message:', error);
+        }
+    }
+}
+
+
+let initialLoginComplete = false;
+
+function initializeWebSocket() {
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+        console.log("WebSocket connection already exists");
+        return;
+    }
+
+    if (isConnecting) {
+        console.log("WebSocket connection is already being established");
+        return;
+    }
+
+    isConnecting = true;
+    const userId = sessionStorage.getItem('userId');
+    const token = localStorage.getItem('token');
+
+    if (!userId || !token) {
+        console.error("User ID or token not found. Please log in.");
+        isConnecting = false;
+        return;
+    }
+
+    ws = new WebSocket(`ws://localhost:8080/ws?token=${token}`);
+
+    ws.onopen = () => {
+        console.log('WebSocket connection established');
+        isConnecting = false;
+        reconnectAttempts = 0;
+        requestOnlineUsersList();
+
+        // Set a flag to indicate this is the initial login
+        initialLoginComplete = true;
+
+        // Schedule a delayed request for online users
+        setTimeout(() => {
+            if (chatUIReady) {
+                console.log("Sending delayed request for online users");
+                requestOnlineUsersList();
+            }
+        }, 6000); // Delay of 3 seconds
+    };
+
+    ws.onmessage = (event) => {
+        console.log("WebSocket message received:", event.data);
+        try {
+            const message = JSON.parse(event.data);
+            if (chatUIReady) {
+                displayIncomingMessage(message);
+            } else {
+                console.log("Chat UI not ready, queueing message:", message);
+                queueMessage(message);
+            }
+        } catch (error) {
+            console.error('Error parsing message JSON:', error);
+        }
+    };
+
+    ws.onclose = (event) => {
+        if (event.code === 1001) {
+            console.log('WebSocket closed due to page navigation');
+        } else {
+            console.error('WebSocket closed unexpectedly:', event.code, event.reason);
+            if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+                setTimeout(() => {
+                    reconnectAttempts++;
+                    console.log(`Attempting to reconnect (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
+                    initializeWebSocket();
+                }, 5000 * reconnectAttempts); // Exponential backoff
+            } else {
+                console.error('Max reconnection attempts reached. Please refresh the page.');
+            }
+        }
+        isConnecting = false;
+    };
+
+    ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        isConnecting = false;
+    };
+}
+
+
+
+function queueMessage(message) {
+    messageQueue.push(message);
+}
+
+function processQueuedMessages() {
+    while (messageQueue.length > 0) {
+        const message = messageQueue.shift();
+        displayIncomingMessage(message);
+    }
+}
+
+function setupDarkModeToggle() {
+    const body = document.body;
+    const darkModeToggle = document.createElement('div');
+    darkModeToggle.classList.add('mode-toggle');
+    darkModeToggle.setAttribute('title', 'Toggle Dark/Light Mode');
+
+    // Insert the toggle button into the navigation bar
+    const nav = document.querySelector('nav');
+    nav.appendChild(darkModeToggle);
+
+    // Check for saved user preference
+    const darkMode = localStorage.getItem('darkMode');
+
+    // Set initial mode
+    if (darkMode === 'enabled') {
+        body.classList.add('dark-mode');
+    }
+
+    // Add click event
+    darkModeToggle.addEventListener('click', () => {
+        body.classList.toggle('dark-mode');
+        
+        // Save user preference
+        if (body.classList.contains('dark-mode')) {
+            localStorage.setItem('darkMode', 'enabled');
+        } else {
+            localStorage.setItem('darkMode', null);
+        }
+    });
+}
+
+// // Call this function after your navigation is set up
+// document.addEventListener('DOMContentLoaded', setupDarkModeToggle);
+
+function displayIncomingMessage(message) {
+    console.log("Handling incoming message:", message);
+
+    if (!chatUIReady) {
+        console.log("Chat UI not ready, queueing message");
+        queueMessage(message);
+        return;
+    }
+
+    try {
+        switch (message.type) {
+            case 'broadcast':
+                // Check if this broadcast message is a duplicate
+                const currentTimestamp = Date.now();
+                if (currentTimestamp - lastBroadcastTimestamp < 100) { // 100ms threshold
+                    console.log("Potential duplicate broadcast message detected, ignoring");
+                    return;
+                }
+                lastBroadcastTimestamp = currentTimestamp;
+                displayBroadcastMessage(message);
+                break;
+            case 'private':
+                displayPrivateMessage(message);
+                break;
+            case 'onlineUsers':
+                if (Array.isArray(message.onlineUsers)) {
+                    updateOnlineUsersList(message.onlineUsers);
+                } else {
+                    console.error("Invalid onlineUsers data:", message.onlineUsers);
+                }
+                break;
+            case 'userStatusChange':
+                updateUserStatus(message.onlineUsers[0]);
+                break;
+            default:
+                console.warn('Unknown message type:', message.type);
+                return;
+        }
+        if (message.type === 'broadcast' || message.type === 'private') {
+            displayNotification(message);
+        }
+    } catch (error) {
+        console.error('Error handling incoming message:', error);
+    }
+}
+
+function updateUserStatus(user) {
+    if (!chatUIReady) {
+        console.log("Chat UI not ready, skipping user status update");
+        return;
+    }
+
+    const onlineUsersContainer = document.getElementById('online-users-container');
+    if (!onlineUsersContainer) {
+        console.log("Not on chat page, skipping user status update");
+        return;
+    }
+
+    let userElement = document.querySelector(`.user-div[data-user-id="${user.userId}"]`);
+    if (userElement) {
+        // Update existing user element
+        userElement.textContent = `${user.username} (${user.isOnline ? 'Online' : 'Offline'})`;
+        userElement.className = user.isOnline ? 'online-user online' : 'online-user offline';
+    } else {
+        // If the user isn't in the list, request a full update
+        requestOnlineUsersList();
+    }
+}
+
+function requestOnlineUsersList() {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "onlineUsers" }));
+    } else {
+        console.error("WebSocket is not open. Unable to request online users list.");
+    }
+}
+
+// Function to initiate private chat and load chat history
+function initiatePrivateChat(username, userId) {
+    const currentlyChattingWith = sessionStorage.getItem('currentChatUserId');
+    if (currentlyChattingWith === userId.toString()) {
+        // Clear current chat
+        sessionStorage.removeItem('currentChatUserId');
+        sessionStorage.removeItem('currentChatUser');
+        document.getElementById('messages-container').innerHTML = '';
+        document.getElementById('chat-with-label').textContent = 'No active chat';
+    } else {
+        sessionStorage.setItem('currentChatUser', username);
+        sessionStorage.setItem('currentChatUserId', userId);
+        document.getElementById('chat-with-label').textContent = `Chat with ${username}`;
+        loadAndDisplayChatHistory(userId);
+        setupScrollListener(); // Initialize scroll listener
+    }
+}
+
+// In the setupScrollListener function
+function setupScrollListener() {
+    const messagesContainer = document.getElementById('messages-container');
+    if (messagesContainer) {
+        messagesContainer.addEventListener('scroll', function() {
+            if (messagesContainer.scrollTop === 0 && hasMoreMessages && !isLoadingMessages) {
+                loadMoreMessages();
+            }
+        });
+    }
+}
+
+// Update the loadMoreMessages function
+function loadMoreMessages() {
+    if (isLoadingMessages) return; // Prevent multiple simultaneous loads
+
+    isLoadingMessages = true;
+    const loadingIndicator = document.getElementById('loading-indicator');
+    if (loadingIndicator) {
+        loadingIndicator.style.display = 'block';
+    }
+
+    // Ensure the loading indicator is visible for at least 1 second
+    setTimeout(() => {
+        const currentUserId = sessionStorage.getItem('userId');
+        const receiverId = sessionStorage.getItem('currentChatUserId');
+
+        if (!currentUserId || !receiverId) {
+            console.error("User IDs are missing.");
+            isLoadingMessages = false;
+            if (loadingIndicator) {
+                loadingIndicator.style.display = 'none';
+            }
+            return;
+        }
+
+        chatHistoryOffset += chatHistoryLimit;
+        fetchChatHistory(currentUserId, receiverId, chatHistoryLimit, chatHistoryOffset)
+            .then(() => {
+                // Keep the loading indicator visible for a short time after loading
+                setTimeout(() => {
+                    isLoadingMessages = false;
+                    if (loadingIndicator) {
+                        loadingIndicator.style.display = 'none';
+                    }
+                }, 500);
+            })
+            .catch((error) => {
+                console.error('Error loading more messages:', error);
+                isLoadingMessages = false;
+                if (loadingIndicator) {
+                    loadingIndicator.style.display = 'none';
+                }
+            });
+    }, 1000);
+}
+
+
+
+
+
+function displayBroadcastMessage(message) {
+    console.log(`Displaying broadcast message: ${message.senderUsername}: ${message.message}`);
+    const messagesContainer = document.getElementById('messages-container');
+    const messageElement = document.createElement('div');
+    messageElement.className = 'message broadcast-message';
+    
+    const contentSpan = document.createElement('span');
+    contentSpan.className = 'message-content';
+    contentSpan.textContent = `${message.senderUsername}: ${message.message}`;
+    messageElement.appendChild(contentSpan);
+
+    const timeSpan = document.createElement('span');
+    timeSpan.className = 'message-time';
+    timeSpan.textContent = new Date().toLocaleTimeString();
+    messageElement.appendChild(timeSpan);
+
+    messagesContainer.appendChild(messageElement);
+    scrollMessagesToBottom();
+    removeNoMessagesPlaceholder();
+}
+
+// Update the displayPrivateMessage and displayOutgoingMessage functions
+function displayPrivateMessage(message) {
+    try {
+        const messagesContainer = document.getElementById('messages-container');
+        if (!messagesContainer) {
+            console.error('Messages container not found');
+            return;
+        }
+
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message private-message';
+        
+        const contentSpan = document.createElement('span');
+        contentSpan.className = 'message-content';
+        contentSpan.textContent = `${message.senderUsername}: ${message.message}`;
+        messageDiv.appendChild(contentSpan);
+
+        const timeSpan = document.createElement('span');
+        timeSpan.className = 'message-time';
+        timeSpan.textContent = new Date().toLocaleTimeString();
+        messageDiv.appendChild(timeSpan);
+
+        messagesContainer.appendChild(messageDiv);
+        scrollMessagesToBottom();
+        removeNoMessagesPlaceholder();
+    } catch (error) {
+        console.error('Error displaying private message:', error);
+    }
+}
+
+function removeNoMessagesPlaceholder() {
+    const noMessagesPlaceholder = document.getElementById('no-messages');
+    if (noMessagesPlaceholder) {
+        noMessagesPlaceholder.remove();
+    }
+}
+
+function scrollMessagesToBottom() {
+    const messagesContainer = document.getElementById('messages-container');
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+function displayNotification(message) {
+    // Find the notifications container
+    const notificationsContainer = document.getElementById('notifications-container');
+    if (!notificationsContainer) {
+        console.error("Notifications container not found.");
+        return;
+    }
+
+    // Determine the notification text based on message type
+    let notificationText;
+    if (message.type === 'private') {
+        notificationText = `New message from ${message.senderUsername}`;
+    } else if (message.type === 'broadcast') {
+        notificationText = `Broadcast message from ${message.senderUsername}`;
+    } else {
+        // Default notification text for other types of messages
+        notificationText = "You've received a new notification.";
+    }
+
+    // Create a new notification element
+    const notificationElement = document.createElement('div');
+    notificationElement.classList.add('notification');
+    notificationElement.textContent = notificationText;
+
+    // Append the new notification to the notifications container
+    notificationsContainer.appendChild(notificationElement);
+
+    // Optionally, remove the notification after a set time
+    setTimeout(() => {
+        if (notificationsContainer.contains(notificationElement)) {
+            notificationsContainer.removeChild(notificationElement);
+        }
+    }, 10000); // Adjust the duration as needed
+}
+
+
+function updateChatButtonIndicator() {
+    const chatBtn = document.getElementById('chatbtn');
+    if (newMessageCount > 0) {
+        chatBtn.textContent = `myChats (${newMessageCount})`;
+    } else {
+        chatBtn.textContent = 'myChats';
+    }
+}
+
+
+
+function resetNewMessageCount() {
+    newMessageCount = 0;
+    updateChatButtonIndicator(); // Assumes this function is also defined in `pages.js`
+}
+
+// Modify the updateOnlineUsersList function to log the updates
+function updateOnlineUsersList(users) {
+    console.log("Updating online users list with data:", users);
+    const onlineUsersContainer = document.getElementById('online-users-container');
+    if (!onlineUsersContainer) {
+        console.error("Online users container not found. Ensure you're on the chat page.");
+        return;
+    }
+
+    onlineUsersContainer.innerHTML = '<h3>Online Users</h3>';
+
+    users.forEach(user => {
+        const userDiv = document.createElement('div');
+        userDiv.className = user.isOnline ? 'user-div online' : 'user-div offline';
+        userDiv.textContent = `${user.username} (${user.isOnline ? 'Online' : 'Offline'})`;
+        userDiv.dataset.userId = user.userId;
+        userDiv.addEventListener('dblclick', () => initiatePrivateChat(user.username, user.userId));
+        onlineUsersContainer.appendChild(userDiv);
+    });
+}
+
+function loadAndDisplayChatHistory(userId) {
+    const currentUserId = sessionStorage.getItem('userId');
+    if (!currentUserId) {
+        console.error("Current user ID is missing.");
+        return;
+    }
+    chatHistoryOffset = 0; // Reset offset when starting new chat
+    hasMoreMessages = true; // Reset flag
+    fetchChatHistory(currentUserId, userId, chatHistoryLimit, chatHistoryOffset);
+}
+
+// In the fetchChatHistory function
+function fetchChatHistory(senderId, receiverId, limit, offset) {
+    const url = `http://localhost:8080/chat-history?senderId=${senderId}&receiverId=${receiverId}&limit=${limit}&offset=${offset}`;
+    return fetch(url)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to fetch chat history');
+            }
+            return response.json();
+        })
+        .then(messages => {
+            if (messages && messages.length < limit) {
+                hasMoreMessages = false; // No more messages to load
+                displayNoMoreMessagesIndicator();
+            }
+            if (messages) {
+                displayChatHistory(messages, offset > 0);
+            } else {
+                console.log('No messages returned from server');
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching chat history:', error);
+            const messagesContainer = document.getElementById('messages-container');
+            if (messagesContainer) {
+                messagesContainer.textContent = 'Failed to load chat history.';
+            }
+            throw error;
+        });
+}
+
+
+function displayChatHistory(messages, append = false) {
+    const messagesContainer = document.getElementById('messages-container');
+    const currentUserId = sessionStorage.getItem('userId');
+
+    if (!append) {
+        messagesContainer.innerHTML = '';
+    }
+
+    // Reverse messages for chronological order
+    messages.reverse();
+
+    let previousHeight = messagesContainer.scrollHeight;
+
+    messages.forEach(message => {
+        const messageDiv = document.createElement('div');
+        const isOutgoing = message.sender_id.toString() === currentUserId;
+        messageDiv.className = `message private-message ${isOutgoing ? 'outgoing' : ''}`;
+
+        const contentSpan = document.createElement('span');
+        contentSpan.className = 'message-content';
+        contentSpan.textContent = `${message.senderUsername}: ${message.message_content}`;
+        messageDiv.appendChild(contentSpan);
+
+        const timeSpan = document.createElement('span');
+        timeSpan.className = 'message-time';
+        const sentAt = new Date(message.sent_at);
+        const formattedDate = !isNaN(sentAt.getTime()) ? sentAt.toLocaleTimeString() : 'Invalid Date';
+        timeSpan.textContent = formattedDate;
+        messageDiv.appendChild(timeSpan);
+
+        if (append) {
+            messagesContainer.insertBefore(messageDiv, messagesContainer.firstChild);
+        } else {
+            messagesContainer.appendChild(messageDiv);
+        }
+    });
+
+    if (append) {
+        let newHeight = messagesContainer.scrollHeight;
+        messagesContainer.scrollTop = newHeight - previousHeight;
+    } else {
+        // Scroll to bottom on initial load
+        scrollMessagesToBottom();
+    }
+
+    // If no messages are present
+    if (messages.length === 0 && !append) {
+        const noMessages = document.createElement('div');
+        noMessages.textContent = 'No previous conversations.';
+        noMessages.className = 'no-messages';
+        messagesContainer.appendChild(noMessages);
+    }
+}
+
+
+
+
+
+
+
+
+
+function createNewpostContent() {
+
+    // Create an empty post obejct
+    const post = {}
+
+    // Create a form for the new post
+    const newPostForm = document.createElement("form")
+    const newPostTitle = document.createElement("input")
+    newPostTitle.setAttribute("id", "newposttitle")
+    newPostTitle.setAttribute("placeholder", "Title")
+    newPostTitle.required = true
+
+    // Create a text area for the new post content
+    const newPostContent = document.createElement("textarea")
+    newPostContent.setAttribute("id", "newpostcontent")
+    newPostContent.setAttribute("placeholder", "What's on your mind...")
+    
+    // Create a select dropdown for the new post category
+    const category = document.createElement('select');
+        category.setAttribute('id', 'newcategory'); 
+        category.addEventListener('change' , () => {
+            // Update the post obect with the selected category
+            post.category_id = parseInt(category.value)
+        })
+        // Create options for the select dropdown
+        const option1 = document.createElement('option');
+        option1.value = '1';
+        option1.text = 'Sports';
+        const option2 = document.createElement('option');
+        option2.value = '2';
+        option2.text = 'Food';
+        const option3 = document.createElement('option');
+        option3.value = '3';
+        option3.text = 'Politics';
+        const option4 = document.createElement('option');
+        option4.value = '4';
+        option4.text = 'Other';
+        
+        // Append options to the category select dropdown
+        category.appendChild(option1);
+        category.appendChild(option2);
+        category.appendChild(option3);
+        category.appendChild(option4)
+
+        // Create a submit button for the new post form
+    const newPostSubmit = document.createElement('input')
+    newPostSubmit.setAttribute('type', 'submit')
+    newPostSubmit.setAttribute('value', 'Create Post')
+    newPostSubmit.setAttribute('id', 'newpostsubmit')
+
+
+    //Add the title, content, category, and submit button to the new post form
+    newPostForm.appendChild(newPostTitle)
+    newPostForm.appendChild(newPostContent)
+    newPostForm.appendChild(category)
+    newPostForm.appendChild(newPostSubmit)
+
+      // Ad the form to the content div
+        contentDiv.appendChild(newPostForm)
+        
+        // Add an event listener for the new post form 
+        newPostForm.addEventListener('submit', async (event) => {
+            // Prevent the default form submission
+            event.preventDefault();
+            // Create a new date object
+            const now = new Date()
+
+             
+            // Get the token from local storage
+                const token = localStorage.getItem('token')
+                console.log(token)
+
+                // Decode the token to get the user ID
+                const decodeToken = jwtDecode(token)
+                const userID = decodeToken.userID
+
+                // Update the post object with the user ID
+                post.userID = userID
+                post.post_title = newPostTitle.value,
+                post.post_content = newPostContent.value,
+                post.category_id = parseInt(category.value) ,
+                post.created_at = now
+            console.log(userID)
+            console.log(post)
+            
+            // Send/fetch the new post to the backend
+            const response = await fetch('http://localhost:8080/newpost', {
+                method : 'POST',
+                headers : {
+                    'Content-Type' : 'application/json',
+                    'Authorization' : `Bearer ${token}`
+                },
+                body : JSON.stringify(post)
+            })
+            // If the response is ok, redirect to the forum page
+            if (response.ok) {
+                const data = await response.json();
+                console.log(JSON.stringify(data), "Data")
+                window.location.href = '#/forum'
+            }else {
+                // If the response is not ok, alert the user
+                alert('error with new post')
+            }
+            console.log(newPostTitle.value, newPostContent.value, parseInt(category.value))
+
+        })
+
+
+    }
+    async function viewPostWithComments(postId) {
+    contentDiv.innerHTML = ''; // Clear content
+
+    const token = localStorage.getItem('token');
+    try {
+        // Fetch the post data
+        const postResponse = await fetch(`http://localhost:8080/posts/${postId}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        if (!postResponse.ok) throw new Error('Failed to fetch post');
+
+        const postData = await postResponse.json();
+        await displaySinglePostWithComments(postData);
+
+        // Comments are fetched and displayed within displaySinglePostWithComments
+    } catch (error) {
+        console.error('Error fetching post:', error);
+        alert('Failed to load the post. Please try again later.');
+        // Optionally, redirect back to the forum page
+        window.location.href = '#/forum';
+    }
+}
+
+async function displaySinglePostWithComments(postData) {
+    contentDiv.innerHTML = ''; // Clear content
+    setupNav(); // Set up navigation
+
+    // Fetch all users and create a mapping of user IDs to usernames
+    const usersMap = await fetchAllUsers();
+
+    const postElement = document.createElement('div');
+    postElement.classList.add('singlepost');
+
+    const titleElement = document.createElement('h2');
+    titleElement.textContent = postData.post_title;
+
+    const authorElement = document.createElement('p');
+    authorElement.textContent = `By ${postData.username}`; // Using the username from the post data
+
+    const contentElement = document.createElement('p');
+    contentElement.textContent = postData.post_content;
+
+    const createdAtElement = document.createElement('p');
+    createdAtElement.textContent = `Posted on ${formatDate(postData.created_at)}`;
+
+    const commentsContainer = document.createElement('div');
+    commentsContainer.classList.add('comments-section');
+
+    const commentsTitle = document.createElement('h3');
+    commentsTitle.textContent = 'Comments';
+    commentsContainer.appendChild(commentsTitle);
+
+    try {
+        const commentsResponse = await fetch(`http://localhost:8080/comments?postId=${postData.post_id}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+
+        if (!commentsResponse.ok) throw new Error('Failed to fetch comments');
+
+        const commentsData = await commentsResponse.json();
+
+        // Display comments in reverse order (most recent first)
+        commentsData.reverse().forEach(comment => {
+            const commentElement = document.createElement('div');
+            commentElement.classList.add('comment');
+
+            const commentContent = document.createElement('p');
+            commentContent.textContent = comment.content;
+
+            const commentAuthor = document.createElement('p');
+            const authorUsername = usersMap[comment.author_id] || 'Unknown User';
+            commentAuthor.textContent = `By ${authorUsername}`;
+
+            const commentDate = document.createElement('p');
+            commentDate.textContent = `Commented on ${formatDate(comment.created_at)}`;
+
+            commentElement.appendChild(commentContent);
+            commentElement.appendChild(commentAuthor);
+            commentElement.appendChild(commentDate);
+
+            commentsContainer.appendChild(commentElement);
+        });
+
+    } catch (error) {
+        console.error('Error fetching comments:', error);
+        commentsContainer.appendChild(document.createTextNode('Failed to load comments.'));
+    }
+
+    postElement.appendChild(titleElement);
+    postElement.appendChild(authorElement);
+    postElement.appendChild(contentElement);
+    postElement.appendChild(createdAtElement);
+    postElement.appendChild(commentsContainer);
+
+    // Add the comment submission form
+    const commentForm = document.createElement('form');
+    commentForm.setAttribute('id', 'commentForm');
+    commentForm.innerHTML = `
+        <textarea id="newComment" class="input" placeholder="Add your comment..."></textarea><br>
+        <button type="submit" class="submit">Submit</button>
+    `;
+
+    commentForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const newComment = document.getElementById('newComment').value;
+
+        try {
+            const response = await fetch('http://localhost:8080/add-comment', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                },
+                body: JSON.stringify({
+                    post_id: postData.post_id,
+                    content: newComment
+                })
+            });
+
+            if (!response.ok) throw new Error('Failed to add comment');
+
+            alert('Comment added successfully!');
+            // Refresh the post and comments section
+            displaySinglePostWithComments(postData);
+
+        } catch (error) {
+            console.error('Error adding comment:', error);
+            alert('Failed to add comment.');
+        }
+    });
+
+    postElement.appendChild(commentForm);
+    contentDiv.appendChild(postElement);
+}
+    
+// Function to fetch all users and create a mapping of user IDs to usernames
+async function fetchAllUsers() {
+    try {
+        const response = await fetch('http://localhost:8080/users', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+
+        if (!response.ok) throw new Error('Failed to fetch users');
+
+        const users = await response.json();
+        const usersMap = {};
+        users.forEach(user => {
+            usersMap[user.user_id] = user.username;
+        });
+        return usersMap;
+    } catch (error) {
+        console.error('Error fetching users:', error);
+        return {};
+    }
+}
+
+    export {
+        createForumContent, 
+        createProfileContent, 
+        createChatContent, 
+        createNewpostContent,
+        resetNewMessageCount,
+        displayPrivateMessage,
+        displayNotification,
+        updateOnlineUsersList,
+        initializeWebSocket,
+        handleLogout,
+        processQueuedMessages,
+        initialLoginComplete
+    };
+```````
+
+`/Users/samuelcouchman/Documents/01Founders/gitea/realtimeforumFinal/real-time-forum/backend/websocket/websocket.go`:
+
+```````go
+package websocket
+
+import (
+	"database/sql"
+	"fmt"
+	"log"
+	"net/http"
+	"runtime/debug"
+	"sync"
+	"time"
+
+	realtimeforum "livechat-system/backend/models"
+	service "livechat-system/backend/services"
+
+	"github.com/dgrijalva/jwt-go"
+	"github.com/gorilla/websocket"
+)
+
+// WebSocketServer represents the WebSocket server.
+type WebSocketServer struct {
+	DB              *sql.DB
+	ForumService    *service.ForumService
+	SecretKey       string
+	clients         map[*websocket.Conn]int64 // Map to track all connected WebSocket clients
+	onlineUsers     map[int64]bool            // Map to track online users
+	clientsMutex    sync.Mutex
+	userStatusMutex sync.Mutex
+}
+
+// NewWebSocketServer creates a new instance of WebSocketServer with dependencies injected.
+func NewWebSocketServer(db *sql.DB, forumService *service.ForumService, secretKey string) *WebSocketServer {
+	if forumService == nil {
+		log.Fatalf("ForumService is nil")
+	}
+	return &WebSocketServer{
+		DB:              db,
+		ForumService:    forumService,
+		SecretKey:       secretKey,
+		clients:         make(map[*websocket.Conn]int64),
+		onlineUsers:     make(map[int64]bool),
+		userStatusMutex: sync.Mutex{},
+	}
+}
+
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
+}
+
+type CustomClaims struct {
+	UserID int `json:"user_id"`
+	jwt.StandardClaims
+}
+
+// HandleConnections manages incoming WebSocket connections, enforcing JWT token validation.
+func (server *WebSocketServer) HandleConnections(w http.ResponseWriter, r *http.Request) {
+	log.Printf("New WebSocket connection attempt from %s", r.RemoteAddr)
+
+	// Extract JWT token from query parameters.
+	tokenString := r.URL.Query().Get("token")
+	if tokenString == "" {
+		log.Println("JWT token is missing")
+		http.Error(w, "JWT token is missing", http.StatusUnauthorized)
+		return
+	}
+
+	// Validate JWT token.
+	claims, err := server.validateToken(tokenString)
+	if err != nil {
+		log.Printf("Invalid token: %v\n", err)
+		http.Error(w, "Invalid JWT token", http.StatusUnauthorized)
+		return
+	}
+
+	// At this point, the token is valid.
+	userID := claims.UserID
+	log.Printf("Authenticated user ID: %d\n", userID)
+
+	// Proceed with WebSocket upgrade.
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Println("WebSocket Upgrade error:", err)
+		http.Error(w, "Failed to upgrade WebSocket connection", http.StatusInternalServerError)
+		return
+	}
+
+	// Delegate the connection handling to another method
+	server.handleClientConnection(conn, int64(claims.UserID))
+
+}
+
+func (server *WebSocketServer) validateToken(tokenString string) (*CustomClaims, error) {
+	fmt.Println("token at Validation:", tokenString) // Log the token to inspect its format and completeness
+	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(server.SecretKey), nil
+	})
+	if err != nil {
+		fmt.Println("Token validation error:", err) // More detailed error logging
+		return nil, err
+	}
+	if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {
+		return claims, nil
+	} else {
+		return nil, fmt.Errorf("invalid token")
+	}
+}
+
+func (server *WebSocketServer) handleClientConnection(conn *websocket.Conn, userID int64) {
+	// Ensure to handle client disconnection
+	defer server.handleClientDisconnection(conn, userID)
+
+	// Register new connection with the user's ID.
+	server.clientsMutex.Lock()
+	if server.clients == nil {
+		server.clients = make(map[*websocket.Conn]int64)
+	}
+	server.clients[conn] = userID
+	server.clientsMutex.Unlock()
+
+	server.markUserOnline(userID)
+
+	// Send the initial online users list to the new client
+	server.sendOnlineUsersToClient(conn)
+
+	// Broadcast to all other clients that a new user has connected
+	server.broadcastUserStatusChange(userID, true)
+
+	// Listen to messages from this connection
+	server.listenToMessages(conn, userID)
+}
+
+func (server *WebSocketServer) sendOnlineUsersToClient(conn *websocket.Conn) {
+	onlineUsers := server.getOnlineUsers()
+	message := realtimeforum.Message{
+		Type:        "onlineUsers",
+		OnlineUsers: onlineUsers,
+	}
+	err := conn.WriteJSON(message)
+	if err != nil {
+		log.Printf("Error sending online users to client: %v", err)
+	}
+}
+
+func (server *WebSocketServer) getOnlineUsers() []realtimeforum.UserStatus {
+	server.userStatusMutex.Lock()
+	defer server.userStatusMutex.Unlock()
+
+	var onlineUsers []realtimeforum.UserStatus
+	for userID := range server.onlineUsers {
+		username, err := server.ForumService.GetUsernameByID(userID)
+		if err != nil {
+			log.Printf("Error getting username for user %d: %v", userID, err)
+			continue
+		}
+		onlineUsers = append(onlineUsers, realtimeforum.UserStatus{
+			UserID:   userID,
+			Username: username,
+			IsOnline: true,
+		})
+	}
+	return onlineUsers
+}
+
+func (server *WebSocketServer) broadcastUserStatusChange(userID int64, isOnline bool) {
+	username, err := server.ForumService.GetUsernameByID(userID)
+	if err != nil {
+		log.Printf("Error getting username for user %d: %v", userID, err)
+		return
+	}
+
+	statusChangeMessage := realtimeforum.Message{
+		Type: "userStatusChange",
+		OnlineUsers: []realtimeforum.UserStatus{
+			{UserID: userID, Username: username, IsOnline: isOnline},
+		},
+	}
+	server.broadcastMessageToAllClients(statusChangeMessage)
+}
+
+func (server *WebSocketServer) listenToMessages(conn *websocket.Conn, userID int64) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("Recovered from panic in listenToMessages: %v", r)
+			debug.PrintStack()
+		}
+		server.handleClientDisconnection(conn, userID)
+	}()
+
+	for {
+		var msg realtimeforum.Message
+		err := conn.ReadJSON(&msg)
+		if err != nil {
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				log.Printf("Error reading JSON: %v", err)
+				debug.PrintStack()
+			}
+			break
+		}
+
+		log.Printf("Message from user %d: Type: %s", userID, msg.Type)
+
+		switch msg.Type {
+		case "private":
+			if msg.ReceiverID != 0 {
+				msg.SenderID = userID
+				server.sendPrivateMessage(msg.SenderID, msg.ReceiverID, msg)
+			} else {
+				log.Printf("Invalid user IDs: SenderID %d, ReceiverID %d", msg.SenderID, msg.ReceiverID)
+				conn.WriteJSON(map[string]string{"error": "Invalid user IDs provided"})
+			}
+		case "broadcast":
+			// msg.SenderID = userID // Set the sender ID
+			server.broadcastMessage(msg)
+		case "onlineUsers":
+			server.sendOnlineUsersToClient(conn)
+		default:
+			log.Printf("Unhandled message type: %s", msg.Type)
+			conn.WriteJSON(map[string]string{"error": "Unhandled message type"})
+		}
+	}
+}
+
+func (server *WebSocketServer) handleClientDisconnection(conn *websocket.Conn, userID int64) {
+	conn.Close()
+	server.clientsMutex.Lock()
+	delete(server.clients, conn)
+	server.clientsMutex.Unlock()
+
+	server.unmarkUserOnline(userID)
+
+	// Broadcast to all clients that this user has disconnected
+	server.broadcastUserStatusChange(userID, false)
+
+	log.Printf("Client with user ID %d has disconnected", userID)
+}
+
+func (server *WebSocketServer) broadcastMessageToAllClients(message realtimeforum.Message) {
+	log.Println("Broadcasting message to all connected clients...")
+	acknowledged := false
+	for client, userID := range server.clients {
+		// Skip sending the message back to the sender
+		if userID == message.SenderID {
+			continue
+		}
+		if err := client.WriteJSON(message); err != nil {
+			log.Printf("Error broadcasting to client: %v", err)
+			client.Close()
+			delete(server.clients, client)
+		} else {
+			acknowledged = true
+		}
+	}
+	if acknowledged {
+		log.Println("Broadcast message successfully sent to at least one client.")
+	} else {
+		log.Println("Failed to send broadcast message to any client.")
+	}
+}
+
+func (server *WebSocketServer) broadcastMessage(message realtimeforum.Message) {
+	message.Type = "broadcast"
+	log.Printf("Initiating broadcast for message: %s", message.Message)
+	server.broadcastMessageToAllClients(message)
+}
+
+func (server *WebSocketServer) sendPrivateMessage(senderID int64, receiverID int64, msg realtimeforum.Message) {
+
+	server.clientsMutex.Lock()
+	defer server.clientsMutex.Unlock()
+
+	log.Printf("Attempting to send private message from %d to %d", senderID, receiverID)
+
+	for conn, id := range server.clients {
+		if id == receiverID {
+			log.Printf("Matching client found for receiver ID %d", receiverID)
+
+			outgoingMsg := realtimeforum.Message{
+				Type:           "private",
+				SenderID:       senderID,
+				ReceiverID:     receiverID,
+				Message:        msg.Message,
+				SenderUsername: msg.SenderUsername,
+				SentAt:         time.Now().UTC(), // Ensure the timestamp is set
+			}
+
+			if senderUsername, err := server.ForumService.GetUsernameByID(senderID); err == nil {
+				outgoingMsg.SenderUsername = senderUsername
+				log.Printf("Sender username set: %s", senderUsername)
+			} else {
+				log.Printf("Failed to retrieve sender username: %v", err)
+			}
+
+			// Send message to the receiver
+			if err := conn.WriteJSON(outgoingMsg); err != nil {
+				log.Printf("Error sending private message to user ID %d: %v", receiverID, err)
+				server.clientsMutex.Lock()
+				conn.Close()
+				delete(server.clients, conn)
+				server.clientsMutex.Unlock()
+				debug.PrintStack()
+				return
+			}
+
+			log.Printf("Private message sent successfully to user ID %d", receiverID)
+
+			chat := realtimeforum.Chats{
+				SenderID:       int(senderID),
+				ReceiverID:     int(receiverID),
+				MessageContent: msg.Message,
+				SentAt:         outgoingMsg.SentAt,
+				SenderUsername: outgoingMsg.SenderUsername,
+			}
+
+			if err := server.ForumService.SaveChatMessage(chat); err != nil {
+				log.Printf("Error saving chat message: %v", err)
+			}
+
+			if err := server.ForumService.UpdateUserLastActivity(server.DB, senderID); err != nil {
+				log.Printf("Failed to update last activity for user %d: %v", senderID, err)
+			}
+		}
+	}
+
+	log.Printf("Finished processing private message from %d to %d", senderID, receiverID)
+}
+
+// Helper function to determine if a user is currently marked online
+func (server *WebSocketServer) isOnline(userID int64) bool {
+	_, exists := server.onlineUsers[userID]
+	return exists
+}
+
+func (server *WebSocketServer) markUserOnline(userID int64) {
+	server.userStatusMutex.Lock()
+	defer server.userStatusMutex.Unlock()
+	server.onlineUsers[userID] = true
+}
+
+func (server *WebSocketServer) unmarkUserOnline(userID int64) {
+	server.userStatusMutex.Lock()
+	defer server.userStatusMutex.Unlock()
+	delete(server.onlineUsers, userID)
+}
+
+```````
+
+`/Users/samuelcouchman/Documents/01Founders/gitea/realtimeforumFinal/real-time-forum/backend/models/model.go`:
+
+```````go
+package realtimeforum
+
+import "time"
+
+// User represents the Users table in the database
+type User struct {
+	UserID    int    `json:"user_id"`
+	Username  string `json:"username"`
+	Age       int    `json:"age"`
+	Gender    string `json:"gender"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Email     string `json:"email"`
+	Password  string `json:"password"`
+}
+
+// Post represents the Posts table in the database
+type Posts struct {
+	PostID       int       `json:"post_id"`
+	UserID       int       `json:"user_id"`
+	Title        string    `json:"post_title"`
+	Content      string    `json:"post_content"`
+	CategoryID   int       `json:"category_id"`
+	CreatedAt    time.Time `json:"created_at"`
+	CommentCount int       `json:"comment_count"` // This field will store the number of comments
+	Username     string    `json:"username"`      // New field for storing the fetched username
+}
+
+// Comment represents the Comments table in the database
+type Comments struct {
+	CommentID int       `json:"comment_id"`
+	AuthorID  int       `json:"author_id"`
+	PostID    int       `json:"post_id"`
+	Content   string    `json:"content"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// Like represents the Likes table in the database
+type Like struct {
+	LikeID int `json:"like_id"`
+	UserID int `json:"user_id"`
+	PostID int `json:"post_id"`
+}
+
+// Category represents the Categories table in the database
+type Category struct {
+	CategoryID int    `json:"category_id"`
+	Category   string `json:"category"`
+}
+
+// PostCategory represents the Post_Category table in the database
+type PostCategory struct {
+	PostID     int `json:"post_id"`
+	CategoryID int `json:"category_id"`
+}
+
+// Chat represents the Chats table in the database
+type Chats struct {
+	MessageID      int       `json:"message_id"`
+	SenderID       int       `json:"sender_id"`
+	ReceiverID     int       `json:"receiver_id"`
+	MessageContent string    `json:"message_content"`
+	SentAt         time.Time `json:"sent_at"`
+	SenderUsername string    `json:"senderUsername"`
+}
+
+// OnlineUser represents the Online_Users table in the database
+type OnlineUsers struct {
+	UserID           int       `json:"user_id"`
+	LastActivityTime time.Time `json:"last_activity_time"`
+}
+
+// Message struct consolidates WebSocket message structure with necessary user and message info.
+type Message struct {
+	Type           string       `json:"type"`                     // Type of message (e.g., "chat", "notification")
+	SenderID       int64        `json:"senderId,omitempty"`       // For identifying the sender
+	SenderUsername string       `json:"senderUsername,omitempty"` // For displaying to users (filled server-side)
+	ReceiverID     int64        `json:"receiverId,omitempty"`     // For routing the message (client-side may leave blank for broadcasts)
+	Message        string       `json:"message"`                  // The actual message content
+	SentAt         time.Time    `json:"sentAt,omitempty"`         // Timestamp (can be set server-side)
+	OnlineUsers    []UserStatus `json:"onlineUsers,omitempty"`    // List of online users' usernames
+}
+
+type UserStatus struct {
+	UserID   int64  `json:"userId"` // UserID to identify the user uniquely
+	Username string `json:"username"`
+	IsOnline bool   `json:"isOnline"`
+}
+
+```````
+
+`/Users/samuelcouchman/Documents/01Founders/gitea/realtimeforumFinal/real-time-forum/backend/TODOList.txt`:
+
+```````txt
+- Hey so I've  been able to get the broadcast meesages to work
+
+- Currently the biggest issue is when trying to send a private message which is done by double clicking a name on the user list 
+and sending a message seems to close the the whole websocket connection. I have no idea why and i cant figure out how to fix it. 
+There are no errors appearing that relate to the server to indicate why but if you can gifure it out let me know. 
+
+- Other issues include, for some reason the online users list does not load the whole list immediately, i also can't figure out why it has to
+reload the list after one minute to show all the online users on the list. 
+
+- Also the placeholder does not appear to be dissapearing intially when a broadcast message is sent. 
+
+
+
+Good luck ive tried several different things so need a break from this. 
+```````
+
+`/Users/samuelcouchman/Documents/01Founders/gitea/realtimeforumFinal/real-time-forum/backend/main.go`:
+
+```````go
+package main
+
+import (
+	"crypto/rand"
+	"database/sql"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	realtimeforum "livechat-system/backend/models"
+	service "livechat-system/backend/services"
+	websocket "livechat-system/backend/websocket"
+	"log"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/dgrijalva/jwt-go"
+	_ "github.com/mattn/go-sqlite3"
+)
+
+// Global variables
+var (
+	db           *sql.DB
+	forumService *service.ForumService
+	secretKey    = generateSecretKey()
+)
+
+type CustomClaims struct {
+	UserID int `json:"user_id"`
+	jwt.StandardClaims
+}
+
+func init() {
+	var err error
+	db, err = sql.Open("sqlite3", "db/forumDB.sqlite")
+	if err != nil {
+		panic(err)
+	}
+
+}
+
+func cleanupInactiveUsers(db *sql.DB) {
+	// SQL query to delete inactive users
+	query := `
+    DELETE FROM online_users
+    WHERE last_activity < DATETIME('now', '-30 minutes');
+    `
+	_, err := db.Exec(query)
+	if err != nil {
+		log.Fatalf("Failed to cleanup inactive users: %v", err)
+	}
+	log.Println("Inactive users cleanup completed successfully.")
+}
+
+func enableCors(w *http.ResponseWriter) {
+	(*w).Header().Set("Access-Control-Allow-Origin", "*")                                // Allow all origins
+	(*w).Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS") // Allow specific methods
+	(*w).Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")     // Allow headers such as 'Content-Type' and 'Authorization'
+}
+
+func main() {
+	// Set up database connection
+	var err error
+	db, err = sql.Open("sqlite3", "db/forumDB.sqlite")
+	if err != nil {
+		log.Fatalf("Failed to open database: %v", err)
+		return
+	}
+
+	// Ensure the database connection is alive
+	err = db.Ping()
+	if err != nil {
+		log.Fatalf("Failed to connect to the database: %v", err)
+		return
+	}
+
+	// Initialize the forumService with the database
+	forumService = service.NewForumService(db)
+	if forumService == nil {
+		log.Fatalf("Failed to initialize ForumService")
+	}
+
+	// Initialize WebSocket server with forumService and db
+	wsServer := websocket.NewWebSocketServer(db, forumService, secretKey)
+	if wsServer == nil {
+		log.Fatalf("Failed to initialize WebSocketServer")
+	}
+
+	// Start broadcasting user statuses periodically in a separate goroutine
+	// go wsServer.BroadcastUserStatusesPeriodically()
+	// Start the HTTP server
+	setupHTTPServer(wsServer)
+
+	// Call the cleanup function periodically
+	ticker := time.NewTicker(1 * time.Hour) // Adjust the duration according to your needs
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			cleanupInactiveUsers(db)
+		}
+	}
+}
+
+func setupHTTPServer(wsServer *websocket.WebSocketServer) {
+	// CORS configuration
+	allowedHeaders := "Accept, Content-Type, Content-Length, Accept-Encoding, Authorization,X-CSRF-Token"
+	allowedMethods := "GET, POST, PUT, DELETE, OPTIONS"
+
+	// CORS middleware
+	corsHandler := func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			w.Header().Set("Access-Control-Allow-Headers", allowedHeaders)
+			w.Header().Set("Access-Control-Allow-Methods", allowedMethods)
+			if r.Method == "OPTIONS" {
+				return
+			}
+			h.ServeHTTP(w, r)
+		})
+	}
+
+	// Configure routes
+	http.HandleFunc("/users", Users)
+	http.HandleFunc("/login", LoginRouteHandler(wsServer)) // Wrap the login function with WebSocket server
+	http.HandleFunc("/register", Register)
+	http.HandleFunc("/newpost", jwtMiddleware(NewPost))
+	http.HandleFunc("/posts/", jwtMiddleware(PostByID)) // Add this line
+	http.HandleFunc("/posts", jwtMiddleware(Posts))
+	http.HandleFunc("/ws", wsServer.HandleConnections)
+	http.HandleFunc("/chat-history", chatHistoryHandler)
+	http.HandleFunc("/comments", FetchComments)                // GET for fetching comments
+	http.HandleFunc("/add-comment", jwtMiddleware(AddComment)) // POST for adding a comment
+
+	// Start the server
+	port := ":8080"
+	fmt.Printf("Server listening on port %s\n", port)
+	log.Fatal(http.ListenAndServe(port, corsHandler(http.DefaultServeMux)))
+}
+
+func AuthenticateUser(db *sql.DB, username string, password string) (int64, string, error) {
+	var storedPassword string
+	var userID int64
+	query := "SELECT user_id, password FROM Users WHERE username = ?"
+	err := db.QueryRow(query, username).Scan(&userID, &storedPassword)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			fmt.Println("User not found for username:", username)
+			return 0, "", nil // Handle user not found scenario
+		}
+		fmt.Println("Error fetching user details:", err)
+		return 0, "", err // Handle other DB-related errors
+	}
+
+	// Print retrieved values for debugging
+	fmt.Println("Retrieved stored password:", storedPassword)
+	fmt.Println("Input username:", username)
+
+	if password != storedPassword {
+		return 0, "", nil // Passwords don't match
+	}
+	fmt.Println(userID)
+	return userID, username, nil // User authenticated successfully
+}
+
+func generateSecretKey() string {
+	// Generate a 32-byte random key
+	key := make([]byte, 32)
+	_, err := rand.Read(key)
+	if err != nil {
+		panic("Error generating random key")
+	}
+
+	// Encode the key to base64 for use as a string
+	return base64.URLEncoding.EncodeToString(key)
+}
+
+func Users(w http.ResponseWriter, r *http.Request) {
+	// Assuming forumService is initialized in your main function
+	users, err := forumService.GetAllUsers()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(users); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func Login(w http.ResponseWriter, r *http.Request, server *websocket.WebSocketServer) {
+
+	// Enable CORS for this request
+	enableCors(&w)
+
+	// Handle preflight OPTIONS request
+	if r.Method == http.MethodOptions {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	// Log the action for debugging purposes
+	fmt.Println("Login attempt")
+
+	// Parse the username and password from the request body
+	var credentials struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&credentials); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	isValidUser, username, err := AuthenticateUser(db, credentials.Username, credentials.Password)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if isValidUser == 0 {
+		http.Error(w, "Invalid username or password", http.StatusUnauthorized)
+		return
+	}
+
+	// Update user last activity
+	if err := forumService.UpdateUserLastActivity(db, isValidUser); err != nil {
+		log.Printf("Failed to update last activity for user %d: %v", isValidUser, err)
+		http.Error(w, "Failed to update user activity", http.StatusInternalServerError)
+		return
+	}
+
+	// Generate a JWT token
+	token := jwt.New(jwt.SigningMethodHS256)
+	claims := CustomClaims{
+		UserID: int(isValidUser),
+		StandardClaims: jwt.StandardClaims{
+			ExpiresAt: time.Now().Add(time.Hour * 24).Unix(),
+		},
+	}
+
+	token.Claims = claims
+
+	token.Claims.Valid()
+
+	tokenString, err := token.SignedString([]byte(secretKey))
+	if err != nil {
+		http.Error(w, "Failed to generate token", http.StatusInternalServerError)
+		return
+	}
+	fmt.Println("intial token on login ", tokenString)
+
+	// Respond with the token
+	response := map[string]interface{}{
+		"token":    tokenString,
+		"username": username,
+		"userId":   isValidUser, // include this to directly send userId
+	}
+
+	log.Printf("Login response: %+v", response) // Add this line to log the response
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+// This function is used for routing setup, wrapping the Login function with access to the WebSocket server.
+func LoginRouteHandler(server *websocket.WebSocketServer) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		Login(w, r, server)
+	}
+}
+
+func Register(w http.ResponseWriter, r *http.Request) {
+
+	// Parse the username and password from the request body
+
+	fmt.Println("connected")
+
+	var newUser realtimeforum.User
+	err := json.NewDecoder(r.Body).Decode(&newUser)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	response := map[string]string{"message": "User registered successfully"}
+	json.NewEncoder(w).Encode(response)
+	fmt.Println("new user:", newUser)
+	forumService.CreateUser(newUser)
+}
+
+func Posts(w http.ResponseWriter, r *http.Request) {
+	posts, err := forumService.GetAllPosts()
+	if err != nil {
+		http.Error(w, "error retrieving all posts", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(posts); err != nil {
+		http.Error(w, "error encoding json", http.StatusInternalServerError)
+		return
+	}
+}
+
+func NewPost(w http.ResponseWriter, r *http.Request) {
+
+	tokenString := r.Header.Get("Authorization")
+	if tokenString == "" {
+		http.Error(w, "Unauthroized", http.StatusUnauthorized)
+		return
+	}
+	tokenString = strings.TrimPrefix(tokenString, "Bearer ")
+	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(secretKey), nil
+	})
+
+	if err != nil {
+		http.Error(w, "error parsing with claims", http.StatusInternalServerError)
+		return
+	}
+
+	claims, ok := token.Claims.(*CustomClaims)
+	if !ok || !token.Valid {
+		http.Error(w, "Invalid Token", http.StatusUnauthorized)
+		return
+	}
+
+	//fmt.Println("token claims:", claims)
+
+	userID := claims.UserID
+	var newPost realtimeforum.Posts
+	err = json.NewDecoder(r.Body).Decode(&newPost)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	newPost.UserID = userID
+	forumService.CreatePost(newPost)
+
+	// Update last activity
+	if err := forumService.UpdateUserLastActivity(db, int64(userID)); err != nil {
+		log.Printf("Failed to update last activity for user %d after posting: %v", userID, err)
+	}
+
+	response := map[string]string{"message": "new post created successfully"}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+	fmt.Println("new post:", newPost)
+}
+
+// Creates a middleware function for jwt authentication
+func jwtMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	// Return a new function that conforms to http.HandlerFunc
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Extract the Authorization header from the request
+		authorizationHeader := r.Header.Get("Authorization")
+		// If the Authorization header is missing, return an error
+		if authorizationHeader == "" {
+			http.Error(w, "Authorization header is required", http.StatusUnauthorized)
+			return
+		}
+		// Remove the "Bearer " prefix from the Authorization header
+		tokenString := strings.TrimPrefix(authorizationHeader, "Bearer ")
+		// Parse the JWT token into a token object, using a callback function to validate the token
+		//&CustomClaims{} indicates that the token shoud be mapped to the CustomClaims struct
+		token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
+			return []byte(secretKey), nil
+		})
+
+		if err != nil || !token.Valid {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(map[string]string{"message": "Invalid token"})
+			return // Ensure you return immediately after writing the response
+		}
+		// If the token is valid proceed with the next handler in the chain
+		// The next handler is passed as an argument to the middleware function
+		// allowing the request to contine through the chain only if the jwt token is valid
+		next.ServeHTTP(w, r)
+
+	}
+}
+
+func chatHistoryHandler(w http.ResponseWriter, r *http.Request) {
+	senderIDStr := r.URL.Query().Get("senderId")
+	receiverIDStr := r.URL.Query().Get("receiverId")
+	limitStr := r.URL.Query().Get("limit")
+	offsetStr := r.URL.Query().Get("offset")
+
+	senderID, err := strconv.ParseInt(senderIDStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid sender ID", http.StatusBadRequest)
+		return
+	}
+
+	receiverID, err := strconv.ParseInt(receiverIDStr, 10, 64)
+	if err != nil {
+		http.Error(w, "Invalid receiver ID", http.StatusBadRequest)
+		return
+	}
+
+	// Set default limit and offset
+	limit := 10
+	offset := 0
+
+	if limitStr != "" {
+		limit, err = strconv.Atoi(limitStr)
+		if err != nil {
+			http.Error(w, "Invalid limit", http.StatusBadRequest)
+			return
+		}
+	}
+
+	if offsetStr != "" {
+		offset, err = strconv.Atoi(offsetStr)
+		if err != nil {
+			http.Error(w, "Invalid offset", http.StatusBadRequest)
+			return
+		}
+	}
+
+	history, err := forumService.GetChatHistory(senderID, receiverID, limit, offset)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to fetch chat history: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(history); err != nil {
+		http.Error(w, "Failed to encode chat history", http.StatusInternalServerError)
+	}
+}
+
+// FetchComments fetches all comments for a specific post
+func FetchComments(w http.ResponseWriter, r *http.Request) {
+	// Enable CORS
+	enableCors(&w)
+
+	postIDStr := r.URL.Query().Get("postId")
+	postID, err := strconv.Atoi(postIDStr)
+	if err != nil {
+		http.Error(w, "Invalid post ID", http.StatusBadRequest)
+		return
+	}
+
+	comments, err := forumService.GetCommentsByPostID(postID)
+	if err != nil {
+		http.Error(w, "Failed to retrieve comments", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(comments); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+// AddComment allows a user to add a comment to a specific post
+func AddComment(w http.ResponseWriter, r *http.Request) {
+	// Enable CORS
+	enableCors(&w)
+
+	// Get token from Authorization header
+	tokenString := r.Header.Get("Authorization")
+	if tokenString == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+	tokenString = strings.TrimPrefix(tokenString, "Bearer ")
+	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(secretKey), nil
+	})
+
+	if err != nil || !token.Valid {
+		http.Error(w, "Invalid Token", http.StatusUnauthorized)
+		return
+	}
+
+	claims, ok := token.Claims.(*CustomClaims)
+	if !ok || !token.Valid {
+		http.Error(w, "Invalid Token", http.StatusUnauthorized)
+		return
+	}
+
+	userID := claims.UserID
+
+	var newComment realtimeforum.Comments
+	err = json.NewDecoder(r.Body).Decode(&newComment)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Set the author and timestamp
+	newComment.AuthorID = userID
+	newComment.CreatedAt = time.Now()
+
+	if err := forumService.AddComment(newComment); err != nil {
+		http.Error(w, "Failed to add comment", http.StatusInternalServerError)
+		return
+	}
+
+	response := map[string]string{"message": "Comment added successfully"}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+func PostByID(w http.ResponseWriter, r *http.Request) {
+	// Extract the post ID from the URL path
+	path := r.URL.Path
+	// Expected path: "/posts/{id}"
+	idStr := strings.TrimPrefix(path, "/posts/")
+	// Remove any trailing slashes
+	idStr = strings.TrimSuffix(idStr, "/")
+	postID, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid post ID", http.StatusBadRequest)
+		return
+	}
+
+	// Fetch the post from the database
+	post, err := forumService.GetPostByID(postID)
+	if err != nil {
+		http.Error(w, "Post not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(post)
+}
+
+```````
+
+`/Users/samuelcouchman/Documents/01Founders/gitea/realtimeforumFinal/real-time-forum/backend/services/forum.service.go`:
+
+```````go
+package service
+
+import (
+	"database/sql"
+	"fmt"
+	realtimeforum "livechat-system/backend/models"
+	"log"
+	"runtime/debug"
+	"time"
+)
+
+type ForumService struct {
+	DB *sql.DB
+}
+
+func NewForumService(db *sql.DB) *ForumService {
+	return &ForumService{DB: db}
+}
+
+func (fs *ForumService) GetAllUsers() ([]realtimeforum.User, error) {
+	rows, err := fs.DB.Query("SELECT * FROM Users")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []realtimeforum.User
+	for rows.Next() {
+		var user realtimeforum.User
+		err := rows.Scan(&user.UserID, &user.Username, &user.Age, &user.Gender, &user.FirstName, &user.LastName, &user.Email, &user.Password)
+		if err != nil {
+			return nil, err
+		}
+		fmt.Println(user, users)
+		users = append(users, user)
+
+	}
+
+	return users, nil
+}
+
+// GetUserIDByUsername returns the user ID for a given username.
+// Returns an error if the user cannot be found or there's a database issue.
+func (fs *ForumService) GetUserIDByUsername(username string) (int64, error) {
+	var userID int64
+	query := "SELECT user_id FROM Users WHERE username = ? LIMIT 1"
+
+	err := fs.DB.QueryRow(query, username).Scan(&userID)
+	if err != nil {
+		return 0, err // Could be sql.ErrNoRows if the user is not found, or another error if there's a problem with the database
+	}
+
+	return userID, nil
+}
+
+func (fs *ForumService) GetUsernameByID(userID int64) (string, error) {
+	var username string
+	query := "SELECT username FROM Users WHERE user_id = ? LIMIT 1"
+
+	err := fs.DB.QueryRow(query, userID).Scan(&username)
+	if err != nil {
+		return "", err
+	}
+
+	return username, nil
+
+}
+
+func (fs *ForumService) CreateUser(newUser realtimeforum.User) (int64, error) {
+	//stmt to insert new user
+	query := "INSERT INTO Users(username, age, gender, first_name, last_name, email, password) VALUES (?,?,?,?,?,?,?)"
+
+	//execute stmt
+	result, err := fs.DB.Exec(query, newUser.Username, newUser.Age, newUser.Gender, newUser.FirstName, newUser.LastName, newUser.Email, newUser.Password)
+	if err != nil {
+		return 0, err
+	}
+
+	//get id of nee registered user
+	userID, err := result.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+
+	fmt.Println(userID)
+	return userID, nil
+}
+
+func (fs *ForumService) CreatePost(newPost realtimeforum.Posts) (int64, error) {
+	query := "INSERT INTO Posts(user_id, title, content, category_id, created_at) VALUES (?,?,?,?,?)"
+
+	result, err := fs.DB.Exec(query, newPost.UserID, newPost.Title, newPost.Content, newPost.CategoryID, newPost.CreatedAt)
+	if err != nil {
+		return 0, err
+	}
+
+	postID, err := result.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+
+	return postID, nil
+}
+
+func (fs *ForumService) GetPostByID(postID int) (*realtimeforum.Posts, error) {
+	query := `
+    SELECT 
+        p.post_id, 
+        p.user_id, 
+        p.title, 
+        p.content, 
+        p.category_id,
+        p.created_at, 
+        COUNT(c.comment_id) AS comment_count,
+        u.username
+    FROM 
+        Posts p
+    LEFT JOIN 
+        Comments c ON p.post_id = c.post_id
+    JOIN
+        Users u ON p.user_id = u.user_id
+    WHERE
+        p.post_id = ?
+    GROUP BY 
+        p.post_id
+    `
+	row := fs.DB.QueryRow(query, postID)
+	var post realtimeforum.Posts
+	err := row.Scan(&post.PostID, &post.UserID, &post.Title, &post.Content, &post.CategoryID, &post.CreatedAt, &post.CommentCount, &post.Username)
+	if err != nil {
+		return nil, err
+	}
+	return &post, nil
+}
+
+func (fs *ForumService) GetAllPosts() ([]realtimeforum.Posts, error) {
+	query := `
+    SELECT 
+        p.post_id, 
+        p.user_id, 
+        p.title, 
+        p.content, 
+        p.created_at, 
+        COUNT(c.comment_id) AS comment_count,
+        u.username
+    FROM 
+        Posts p
+    LEFT JOIN 
+        Comments c ON p.post_id = c.post_id
+    JOIN
+        Users u ON p.user_id = u.user_id
+    GROUP BY 
+        p.post_id
+    ORDER BY 
+        p.created_at DESC;
+    `
+
+	rows, err := fs.DB.Query(query)
+	if err != nil {
+		log.Printf("Error executing query in GetAllPosts: %v", err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	var posts []realtimeforum.Posts
+	for rows.Next() {
+		var post realtimeforum.Posts
+		err := rows.Scan(&post.PostID, &post.UserID, &post.Title, &post.Content, &post.CreatedAt, &post.CommentCount, &post.Username)
+		if err != nil {
+			log.Printf("Error scanning row in GetAllPosts: %v", err)
+			return nil, err
+		}
+		posts = append(posts, post)
+	}
+
+	return posts, nil
+}
+
+func (fs *ForumService) SaveChatMessage(chat realtimeforum.Chats) error {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("Recovered from panic in SaveChatMessage: %v", r)
+			debug.PrintStack()
+		}
+	}()
+
+	// Log the chat message details before attempting to save
+	log.Printf("Saving chat message: %+v", chat)
+
+	// Check for valid database connection
+	if fs.DB == nil {
+		err := fmt.Errorf("database connection is nil")
+		log.Printf("Error: %v", err)
+		return err
+	}
+
+	// SQL query to insert new chat message
+	query := "INSERT INTO Chats(sender_id, receiver_id, message, sent_at, sender_username) VALUES (?,?,?,?,?)"
+
+	// Executing the query with the chat details
+	_, err := fs.DB.Exec(query, chat.SenderID, chat.ReceiverID, chat.MessageContent, chat.SentAt.Format(time.RFC3339), chat.SenderUsername)
+	if err != nil {
+		log.Printf("Error executing query: %v", err)
+		return err
+	}
+
+	// Log successful message save
+	log.Printf("Chat message saved successfully")
+
+	// Return no error
+	return nil
+}
+
+// forum.service.go
+
+func (fs *ForumService) GetChatHistory(senderID, receiverID int64, limit, offset int) ([]realtimeforum.Chats, error) {
+	// SQL query to fetch chat history between two users
+	query := `
+    SELECT c.message_id, c.sender_id, c.receiver_id, c.message, c.sent_at, u.username 
+    FROM Chats c
+    JOIN Users u ON c.sender_id = u.user_id
+    WHERE (c.sender_id = ? AND c.receiver_id = ?) OR (c.sender_id = ? AND c.receiver_id = ?)
+    ORDER BY c.sent_at DESC
+    LIMIT ? OFFSET ?
+    `
+	// Pass all required arguments to the query
+	rows, err := fs.DB.Query(query, senderID, receiverID, receiverID, senderID, limit, offset)
+	if err != nil {
+		log.Printf("Error executing query in GetChatHistory: %v", err)
+		return nil, err
+	}
+	defer rows.Close()
+
+	// Create a slice of chats to store the chat history
+	var chats []realtimeforum.Chats
+	for rows.Next() {
+		var chat realtimeforum.Chats
+		var sentAt string
+		err := rows.Scan(&chat.MessageID, &chat.SenderID, &chat.ReceiverID, &chat.MessageContent, &sentAt, &chat.SenderUsername)
+		if err != nil {
+			log.Printf("Error scanning row in GetChatHistory: %v", err)
+			return nil, err
+		}
+		// Parse the sentAt time
+		chat.SentAt, err = time.Parse(time.RFC3339, sentAt)
+		if err != nil {
+			log.Printf("Error parsing sentAt: %v", err)
+			return nil, err
+		}
+		chats = append(chats, chat)
+	}
+	return chats, nil
+}
+
+// UpdateUserLastActivity updates the last_activity timestamp for a user in the online_users table.
+func (fs *ForumService) UpdateUserLastActivity(db *sql.DB, userID int64) error {
+	// Prepare the SQL statement for upserting last activity
+	query := `
+    INSERT INTO online_users (user_id, last_activity) VALUES (?, CURRENT_TIMESTAMP)
+ON CONFLICT(user_id) DO UPDATE SET last_activity = CURRENT_TIMESTAMP;
+    `
+	_, err := db.Exec(query, userID)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// GetCommentsByPostID retrieves all comments for a given post
+func (s *ForumService) GetCommentsByPostID(postID int) ([]realtimeforum.Comments, error) {
+	rows, err := s.DB.Query("SELECT comment_id, author_id, post_id, content, created_at FROM Comments WHERE post_id = ? ORDER BY created_at DESC", postID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var comments []realtimeforum.Comments
+	for rows.Next() {
+		var comment realtimeforum.Comments
+		if err := rows.Scan(&comment.CommentID, &comment.AuthorID, &comment.PostID, &comment.Content, &comment.CreatedAt); err != nil {
+			return nil, err
+		}
+		comments = append(comments, comment)
+	}
+
+	return comments, nil
+}
+
+// AddComment inserts a new comment into the database
+func (s *ForumService) AddComment(comment realtimeforum.Comments) error {
+	_, err := s.DB.Exec("INSERT INTO Comments (author_id, post_id, content, created_at) VALUES (?, ?, ?, ?)", comment.AuthorID, comment.PostID, comment.Content, comment.CreatedAt)
+	return err
+}
+
+```````
+
+`/Users/samuelcouchman/Documents/01Founders/gitea/realtimeforumFinal/real-time-forum/go.sum`:
+
+```````sum
+github.com/dgrijalva/jwt-go v3.2.0+incompatible h1:7qlOGliEKZXTDg6OTjfoBKDXWrumCAMpl/TFQ4/5kLM=
+github.com/dgrijalva/jwt-go v3.2.0+incompatible/go.mod h1:E3ru+11k8xSBh+hMPgOLZmtrrCbhqsmaPHjLKYnJCaQ=
+github.com/gorilla/websocket v1.5.0 h1:PPwGk2jz7EePpoHN/+ClbZu8SPxiqlu12wZP/3sWmnc=
+github.com/gorilla/websocket v1.5.0/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
+github.com/mattn/go-sqlite3 v1.14.18 h1:JL0eqdCOq6DJVNPSvArO/bIV9/P7fbGrV00LZHc+5aI=
+github.com/mattn/go-sqlite3 v1.14.18/go.mod h1:2eHXhiwb8IkHr+BDWZGa96P6+rkvnG63S2DGjv9HUNg=
+
+```````
+
+`/Users/samuelcouchman/Documents/01Founders/gitea/realtimeforumFinal/real-time-forum/sqlchema.txt`:
+
+```````txt
+
+
+
+CREATE TABLE IF NOT EXISTS Users (
+user_id INTEGER PRIMARY KEY AUTO_INCREMENT
+nickname TEXT UNIQUE NOT NULL
+age INT NOT NULL
+gender TEXT NOT NULL
+first_name TEXT NOT NULL
+last_name TEXT NOT NULL
+email TEXT UNIQUE NOT NULL
+password TEXT NOT NULL
+)
+
+CREATE TABLE IF NOT EXISTS Posts (
+post_id INTEGER PRIMARY KEY AUTO_INCREMENT,                             (Primary Key)
+user_id INTEGER NOT NULL,
+title TEXT NOT NULL,                   (Foreign Key to User table, indicates the user who created the post)
+content TEXT NOT NULL,
+category_id INTEGER NOT NULL,
+created_at TIMESTAMP NOT NULL (to track when the post was created)
+FOREIGN KEY (author_id) REFERENCES Users(user_id) 
+FOREIGN KEY (category_id) REFERENCES categories (id)
+)
+
+CREATE TABLE IF NOT EXISTS Comments (
+comment_id INTEGER PRIMARY KEY AUTO_INCREMENT,
+user_id INTEGER NOT NULL, 
+post_id INTEGER NOT NULL,
+content TEXT NOT NULL,
+created_at TIMESTAMP NOT NULL, (to track when the comment was made)
+FOREIGN KEY (author_id) REFERENCES Users(user_id)
+FOREIGN KEY (post_id) REFERENCES Post(post_id)
+)
+
+CREATE TABLE IF NOT EXISTS Likes (
+like_id INTEGER PRIMARY KEY AUTO_INCREMENT (Primary Key)
+user_id INTEGER NOT NULL,           (Foreign Key to User table, indicates the user who liked)
+post_id INTEGER NOT NULL,           (Foreign Key to Post table, indicates the post that was liked)
+FOREIGN KEY (user_id) REFERENCES Users(user_id)
+FOREIGN KEY (post_id) REFERENCES Post(post_id)
+)
+
+
+CREATE TABLE IF NOT EXISTS Categories (
+category_id INTEGER PRIMARY KEY  AUTO_INCREMENT (Primary Key)
+category Name TEXT 
+)
+
+CREATE TABLE IF NOT EXISTS Post_Category(
+post_id INTEGER NOT NULL (Foreign Key to Post table)
+category_id INTEGER NOT NULL (Foreign Key to Category table)
+FOREIGN KEY (post_id) REFERENCES Posts(post_id)
+FOREIGN KEY (category_id) REFERENCES Categories(category_id)
+)
+
+CREATE TABLE IF NOT EXISTS Chats (
+message_id INTEGER PRIMARY KEY AUTO_INCREMENT (Primary Key)
+sender_id INTEGER NOT NULL (Foreign Key to User table, indicates the sender of the message)
+receiver_id INTEGER NOT NULL (Foreign Key to User table, indicates the receiver of the message)
+message Content TEXT NOT NULL
+sent_at TIMESTAMP NOT NULL (to track when the message was sent)
+FOREIGN KEY (sender_id) REFERENCES Users(user_id)
+FOREIGN KEY (receiver_id) REFERENCES Users(user_id)
+)
+
+
+CREATE TABLE IF NOT EXISTS Online_Users(
+user_id INTEGER NOT NULL (Foreign Key to User table, indicates the user who is online)
+Last_Activity_Time TIMESTAMP NOT NULL (to track the last activity time of the user)
+)
+Online Users Table (for Tracking Online/Logged-in Users)
+
+
+CREATE TABLE IF NOT EXISTS Posts (
+    post_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    category_id INTEGER NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES Users(user_id), 
+    FOREIGN KEY (category_id) REFERENCES Categories(id) 
+);
+
+```````
+
+`/Users/samuelcouchman/Documents/01Founders/gitea/realtimeforumFinal/real-time-forum/README`:
+
+```````
+
+Hi :))
+
+
+
+To run this project, navigate to the  backend folder and run the command "go run main.go"
+
+Then navigate to the frontend folder with the html and js files and run the command "npm install"
+
+This should install all dependencies needed for the project.
+
+Next open the html file using a live server.
+
+Thats all!
+```````
+
+`/Users/samuelcouchman/Documents/01Founders/gitea/realtimeforumFinal/real-time-forum/package.json`:
+
+```````json
+{
+  "dependencies": {
+    "jwt-decode": "^4.0.0"
+  }
+}
+
+```````
