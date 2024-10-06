@@ -319,6 +319,8 @@ function sendMessage() {
     console.error('Error sending message:', error);
 }
     messageInput.value = '';
+     // Request to update the online users list after a private message is sent
+     requestOnlineUsersList();
     
     function displayOutgoingMessage(message) {
         try {
@@ -664,6 +666,10 @@ function displayPrivateMessage(message) {
             return;
         }
 
+        // Update the sessionStorage with the current chat user
+        sessionStorage.setItem('currentChatUser', message.senderUsername);
+        sessionStorage.setItem('currentChatUserId', message.senderId);
+
         const messageDiv = document.createElement('div');
         messageDiv.className = 'message private-message';
         
@@ -680,10 +686,14 @@ function displayPrivateMessage(message) {
         messagesContainer.appendChild(messageDiv);
         scrollMessagesToBottom();
         removeNoMessagesPlaceholder();
+
+        // Update the online users list
+        requestOnlineUsersList();
     } catch (error) {
         console.error('Error displaying private message:', error);
     }
 }
+
 
 function removeNoMessagesPlaceholder() {
     const noMessagesPlaceholder = document.getElementById('no-messages');
@@ -757,8 +767,22 @@ function updateOnlineUsersList(users) {
         return;
     }
 
+    // Clear the container
     onlineUsersContainer.innerHTML = '<h3>Online Users</h3>';
 
+    // Get the current user involved in the private chat from session storage
+    const currentChatUserId = sessionStorage.getItem('currentChatUserId');
+
+    // Sort users: 
+    // 1. Move the current chat user to the top of the list
+    // 2. Sort the remaining users alphabetically by username
+    users.sort((a, b) => {
+        if (a.userId.toString() === currentChatUserId) return -1;
+        if (b.userId.toString() === currentChatUserId) return 1;
+        return a.username.localeCompare(b.username);
+    });
+
+    // Loop through each user and display them in the list
     users.forEach(user => {
         const userDiv = document.createElement('div');
         userDiv.className = user.isOnline ? 'user-div online' : 'user-div offline';
