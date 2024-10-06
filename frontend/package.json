@@ -8,12 +8,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://learn.01founders.co/git/suomar/real-time-forum.git"
+    "url": "https://learn.01founders.co/git/fyamoah/real-time-forum.git"
   },
   "keywords": [
     "real-time-forum"
   ],
-  "author": "sim",
+  "author": "frank",
   "license": "ISC",
   "dependencies": {
     "jwt-decode": "^4.0.0"

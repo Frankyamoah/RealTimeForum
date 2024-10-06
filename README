@@ -1,14 +1,50 @@
+Real-Time Forum Project
+Running the Project
+Prerequisites:
+Go: Ensure you have Go installed.
+Python: Ensure you have Python installed to use the simple HTTP server for the frontend.
+Steps to Run:
+Clone the repository:
 
-Hi :))
+bash
+Copy code
+git clone <https://learn.01founders.co/git/fyamoah/real-time-forum.git>
+cd real-time-forum
+Install Frontend Dependencies:
 
+Navigate to the frontend folder and install the required dependencies:
+bash
+Copy code
+cd frontend
+npm install
+Run the Backend (Go Server):
 
+Open a terminal and navigate to the backend folder:
+bash
+Copy code
+cd backend
+Run the Go server:
+bash
+Copy code
+go run main.go
+The backend will start running, typically on http://localhost:8080 (or another port, depending on your configuration).
 
-To run this project, navigate to the  backend folder and run the command "go run main.go"
+Run the Frontend (Python HTTP Server):
 
-Then navigate to the frontend folder with the html and js files and run the command "npm install"
+In a separate terminal, navigate to the frontend folder where your HTML and JavaScript files are located:
+bash
+Copy code
+cd frontend
+Run the Python HTTP server to serve the frontend files:
+bash
+Copy code
+python3 -m http.server 8000
+This will start the frontend server on http://localhost:8000.
 
-This should install all dependencies needed for the project.
+Access the Application:
 
-Next open the html file using a live server.
-
-Thats all!
+Open your browser and go to http://localhost:8000 to access the frontend.
+The backend (API and WebSocket) will be running on http://localhost:8080 or whichever port you have configured in the Go server.
+Summary:
+Backend: Runs with go run main.go in the backend folder.
+Frontend: Runs with python3 -m http.server 8000 in the frontend folder.
